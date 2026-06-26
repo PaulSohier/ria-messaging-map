@@ -1207,10 +1207,17 @@ async function fetchSheetTab(tabName) {
     const res = await fetch(url);
     const text = await res.text();
     const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
-    const cols = json.table.cols.map(c => c.label);
-    return json.table.rows.map(r => {
+    const tableRows = json.table.rows;
+    if(!tableRows || tableRows.length < 2) return [];
+
+    // Use first row as headers
+    const headerRow = tableRows[0].c.map(cell => cell ? (cell.v || '') : '');
+    return tableRows.slice(1).map(r => {
       const obj = {};
-      r.c.forEach((cell, i) => { obj[cols[i]] = cell ? (cell.v !== null && cell.v !== undefined ? String(cell.v) : '') : ''; });
+      r.c.forEach((cell, i) => {
+        const key = headerRow[i] || '';
+        obj[key] = cell ? (cell.v !== null && cell.v !== undefined ? String(cell.v) : '') : '';
+      });
       return obj;
     });
   } catch(e) {
