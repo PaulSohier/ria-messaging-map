@@ -242,7 +242,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
   <div class="nav-tab" onclick="switchTab('p2',this)">🧭 Customer journeys</div>
   <div class="nav-tab" onclick="switchTab('p3',this)">💰 SMS cost calculator</div>
   <div class="nav-tab" onclick="switchTab('p4',this)">🌍 Global deployment cost</div>
-
+  <div style="margin-left:auto;display:flex;align-items:center;padding:0 8px;"><span id="sheet-indicator" style="font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap;"></span></div>
 </nav>
 
 <div class="intent-bar" id="intent-bar"></div>
@@ -1180,10 +1180,110 @@ function recalcSMS(){
 }
 
 
+/* ── GOOGLE SHEET CONNECTION ── */
+const SHEET_ID = '14e48fP_4h2Qz_A6AwtCumbQ84uoYE8nmWj_-1QparxY';
+
+const INTENT_KEY_MAP_SHEET = {
+  'transaction status':            'transaction_status',
+  'documents required':            'documents_required',
+  'account messages':              'account_messages',
+  'login credentials or password': 'login_credentials',
+  'balance settlement deposit':    'balance_settlement',
+  'interview required':            'interview_required',
+  'refunds':                       'refunds',
+  'cancellations - order on hold': 'cancellations',
+  'transaction under review':      'transaction_review',
+};
+
+function normalizeIntent(raw) {
+  if(!raw) return 'transaction_status';
+  const key = raw.toString().trim().toLowerCase();
+  return INTENT_KEY_MAP_SHEET[key] || key.replace(/\s+/g,'_');
+}
+
+async function fetchSheetTab(tabName) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+    const cols = json.table.cols.map(c => c.label);
+    return json.table.rows.map(r => {
+      const obj = {};
+      r.c.forEach((cell, i) => { obj[cols[i]] = cell ? (cell.v !== null && cell.v !== undefined ? String(cell.v) : '') : ''; });
+      return obj;
+    });
+  } catch(e) {
+    console.warn('Sheet fetch failed:', tabName, e);
+    return [];
+  }
+}
+
+function sheetRowToTemplate(row, audience) {
+  return {
+    event:      (row['Event that triggers the message send'] || '').trim(),
+    channel:    (row['Channel'] || '').trim(),
+    live:       true,
+    title:      (row['Message template title'] || '').trim(),
+    msg:        (row['Message'] || '').trim().substring(0, 400),
+    r1:         (row['Country to'] || '').trim(),
+    r2:         '',
+    r3:         '',
+    region:     (row['Country to'] || '').trim(),
+    sendTo:     (row['Message recipient'] || '').trim(),
+    entry:      (row['Service'] || '').trim(),
+    agent:      (row['Agent Company'] || '').trim(),
+    group:      '',
+    audience:   audience,
+    intent:     normalizeIntent(row['Intent'] || ''),
+    _fromSheet: true,
+  };
+}
+
+async function loadSheetData() {
+  const indicator = document.getElementById('sheet-indicator');
+  if(indicator) indicator.textContent = '⟳ Syncing...';
+
+  const [bmRows, digitalRows] = await Promise.all([
+    fetchSheetTab('B&M'),
+    fetchSheetTab('Digital'),
+  ]);
+
+  let added = 0;
+
+  function mergeRows(rows, audience) {
+    rows.forEach(row => {
+      if(!row['Event that triggers the message send']) return;
+      const t = sheetRowToTemplate(row, audience);
+      if(!t.event || !t.channel) return;
+      const intentKey = t.intent;
+      let target = INTENTS.find(i => i.key === intentKey);
+      if(!target) {
+        target = { key: intentKey, label: intentKey.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()), icon: '📨', data: [] };
+        INTENTS.push(target);
+      }
+      const dup = target.data.some(d => d.title === t.title && d.event === t.event && d.channel === t.channel && d._fromSheet);
+      if(!dup) { target.data.push(t); added++; }
+    });
+  }
+
+  mergeRows(bmRows, 'bm');
+  mergeRows(digitalRows, 'digital');
+
+  if(indicator) indicator.textContent = added > 0 ? `✓ ${added} from sheet` : '✓ Sheet in sync';
+
+  if(added > 0) {
+    buildIntentBar();
+    renderPage(activeTab);
+  }
+}
+
 /* ── INIT ── */
 buildIntentBar();
-
 renderFlow();
+
+// Load sheet data after initial render
+loadSheetData();
 </script>
 </body>
 </html>
