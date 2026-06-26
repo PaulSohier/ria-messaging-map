@@ -1261,6 +1261,7 @@ async function loadSheetData() {
   function mergeRows(rows, audience) {
     rows.forEach(row => {
       if(!row['Event that triggers the message send']) return;
+      if((row['Live'] || '').toLowerCase() !== 'yes') return;
       const t = sheetRowToTemplate(row, audience);
       if(!t.event || !t.channel) return;
       const intentKey = t.intent;
