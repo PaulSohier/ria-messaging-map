@@ -1261,6 +1261,7 @@ async function loadSheetData() {
   function mergeRows(rows, audience) {
     rows.forEach(row => {
       if(!row['Event that triggers the message send']) return;
+      if(bmRows.indexOf(row) === 0 || digitalRows.indexOf(row) === 0) console.log('First row Live value:', JSON.stringify(row['Live']), 'Keys:', Object.keys(row).slice(-3));
       if((row['Live'] || '').toLowerCase() !== 'yes') return;
       const t = sheetRowToTemplate(row, audience);
       if(!t.event || !t.channel) return;
