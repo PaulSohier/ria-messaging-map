@@ -1262,7 +1262,13 @@ async function loadSheetData() {
         target = { key: intentKey, label: intentKey.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()), icon: '📨', data: [] };
         INTENTS.push(target);
       }
-      const dup = target.data.some(d => d.title === t.title && d.event === t.event && d.channel === t.channel && d._fromSheet);
+      // Dedup against ALL existing data (hardcoded + sheet), not just sheet rows
+      const dup = target.data.some(d => 
+        d.title === t.title && 
+        d.event === t.event && 
+        d.channel === t.channel &&
+        (d.r1 || '') === (t.r1 || '')
+      );
       if(!dup) { target.data.push(t); added++; }
     });
   }
