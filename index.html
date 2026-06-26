@@ -1276,6 +1276,11 @@ async function loadSheetData() {
   mergeRows(bmRows, 'bm');
   mergeRows(digitalRows, 'digital');
 
+  console.log('Sheet rows fetched — BM:', bmRows.length, 'Digital:', digitalRows.length, 'Added:', added);
+  if(bmRows.length > 0) console.log('First BM row keys:', Object.keys(bmRows[0]));
+  // Log any row with test in the event name
+  bmRows.forEach(r => { if((r['Event that triggers the message send']||'').toLowerCase().includes('test')) console.log('TEST ROW FOUND:', r); });
+
   if(indicator) indicator.textContent = added > 0 ? `✓ ${added} from sheet` : '✓ Sheet in sync';
 
   if(added > 0) {
