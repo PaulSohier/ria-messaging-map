@@ -1,7 +1,4 @@
-# ria-messaging-map
-Internal dashboard mapping all customer-facing messages across channels, intents, and markets.
-
-# Ria Money Transfer — Customer Messaging Map
+# Ria Money Transfer — Customer Messaging Map V2.0
 
 Internal dashboard mapping all customer-facing messages across channels, intents, and markets.
 
@@ -28,13 +25,22 @@ Executive view of projected SMS spend across all 139 markets. Sortable by any co
 
 ## Data sources
 
-- B&M messaging templates — Clickatell
-- Digital messaging templates — Ria Iterable (global) and MY Wallet platform (Malaysia)
-- Order volumes — Power BI, all B&M markets, 2025
-- SMS costs — current contracted telco rates
-- Clickatell billing — 2025 invoices
+- **B&M messaging templates** — Clickatell
+- **Digital messaging templates** — Ria Iterable (global) and MY Wallet platform (Malaysia)
+- **Order volumes** — Power BI, all B&M markets, 2025
+- **SMS costs** — current contracted telco rates
+- **Clickatell billing** — 2025 invoices
 
-## How to update
+## Live data connection (V2.0)
+
+The dashboard is connected to a Google Sheet as its live data source. All message templates are stored in the sheet across two tabs — **B&M** and **Digital** — following the same column structure as the Ria transactional message library, with one additional column: **Intent**.
+
+When a new message is added to the library, copy the row into the relevant sheet tab, fill in the Intent column, and the dashboard will reflect the update on next refresh. No file replacement needed.
+
+Sheet structure mirrors the library exactly:
+`Product type | Channel | Event that triggers the message send | Message template title | Message | Subject | Language | Send system | Message recipient | From address | Format type | Service | Payment method | Country to | B&M email message incl. HTML | MessageID | Event ID | Agent Company | Intent`
+
+## How to update the dashboard interface
 
 Replace `index.html` in this repository with the new version. The URL stays the same.
 
