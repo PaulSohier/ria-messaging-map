@@ -41,12 +41,15 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .intent-pill.active .ip-count{background:rgba(60,52,137,.15);}
 
 /* FILTER BAR */
-
-
-
-
-
-
+.search-wrap{position:relative;display:flex;align-items:center;max-width:340px;}
+.search-input{width:100%;padding:7px 30px 7px 30px;border:1px solid var(--border-mid);border-radius:20px;background:var(--card);font-size:12px;color:var(--text);font-family:inherit;outline:none;transition:border-color .15s;}
+.search-input:focus{border-color:var(--purple);}
+.search-input::placeholder{color:var(--hint);}
+.search-icon{position:absolute;left:10px;font-size:12px;color:var(--hint);pointer-events:none;}
+.search-clear{position:absolute;right:6px;font-size:12px;color:var(--hint);cursor:pointer;padding:2px 6px;border-radius:50%;user-select:none;}
+.search-clear:hover{color:var(--text);background:var(--bg);}
+.search-count{font-size:11px;color:var(--hint);margin-left:10px;white-space:nowrap;}
+mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 
 
 
@@ -248,7 +251,16 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 <div class="intent-bar" id="intent-bar"></div>
 
 <div class="page active" id="p0"><div class="page-title">Message flow map <span class="page-note">Live routes — library to recipient · filtered by selected intent</span></div><div id="p0-content"></div></div>
-<div class="page" id="p1"><div class="page-title">What fires when <span class="page-note">Every template grouped by event and channel · click event to expand</span></div><div id="p1-content"></div></div>
+<div class="page" id="p1"><div class="page-title">What fires when <span class="page-note">Every template grouped by event and channel · click event to expand</span></div>
+<div style="display:flex;align-items:center;margin-bottom:14px;">
+  <div class="search-wrap">
+    <span class="search-icon">&#128269;</span>
+    <input id="p1-search" class="search-input" type="text" placeholder="Search by title or message text…" oninput="setSearch(this.value)">
+    <span class="search-clear" id="p1-search-clear" style="display:none" onclick="clearSearch()">&times;</span>
+  </div>
+  <span class="search-count" id="p1-search-count"></span>
+</div>
+<div id="p1-content"></div></div>
 <div class="page" id="p2"><div class="page-title">Customer journeys <span class="page-note">What messages a customer receives — happy and unhappy paths</span></div><div id="p2-content"></div></div>
 <div class="page" id="p3"><div class="page-title">SMS cost calculator <span class="page-note">Projected spend by event type — fill in total orders and per-SMS cost to calculate</span></div><div id="p3-content"></div></div>
 <div class="page" id="p4"><div class="page-title">Global deployment cost <span class="page-note">Projected annual SMS cost of deploying US notification coverage to all active markets</span></div><div id="p4-content"></div></div>
@@ -262,6 +274,36 @@ const INTENTS = [{"key":"documents_required","label":"Documents Required","icon"
 let activeIntent = 'all';
 let activeAudience = 'all'; // 'all', 'bm', 'digital'
 let activeTab = 'p0';
+let searchQuery = '';
+
+function setSearch(val){
+  searchQuery = (val||'').trim();
+  document.getElementById('p1-search-clear').style.display = searchQuery ? 'inline-block' : 'none';
+  renderP1();
+}
+function clearSearch(){
+  searchQuery = '';
+  document.getElementById('p1-search').value = '';
+  document.getElementById('p1-search-clear').style.display = 'none';
+  renderP1();
+}
+function highlight(text, esc){
+  if(!searchQuery) return esc(text);
+  var q = searchQuery.toLowerCase();
+  var src = text || '';
+  var lower = src.toLowerCase();
+  var idx = lower.indexOf(q);
+  if(idx === -1) return esc(text);
+  var out = '';
+  var pos = 0;
+  while(idx !== -1){
+    out += esc(src.substring(pos, idx)) + '<mark>' + esc(src.substring(idx, idx+q.length)) + '</mark>';
+    pos = idx + q.length;
+    idx = lower.indexOf(q, pos);
+  }
+  out += esc(src.substring(pos));
+  return out;
+}
 
 const CH_CLS  = {SMS:'sms',WhatsApp:'wa',Email:'em'};
 const CH_ICON = {SMS:'💬',WhatsApp:'📲',Email:'✉️'};
@@ -891,8 +933,10 @@ function toggleMsg(el){
 function renderP1(){
   const intentsToRender = activeIntent==='all' ? INTENTS : [INTENTS.find(i=>i.key===activeIntent)||{label:'',data:[],icon:'',key:''}];
   let totalLive = 0;
+  let totalMatched = 0;
   let html = '';
   let intentIdx = 0;
+  const q = searchQuery.toLowerCase();
 
   intentsToRender.forEach(function(intent){
     var marginTop = intentIdx > 0 ? '24px' : '0';
@@ -905,10 +949,16 @@ function renderP1(){
     var filteredData = intent.data.filter(function(d){
       if(activeAudience==='bm' && d.audience==='digital') return false;
       if(activeAudience==='digital' && d.audience!=='digital') return false;
+      if(q){
+        var titleMatch = (d.title||'').toLowerCase().indexOf(q) !== -1;
+        var msgMatch = (d.msg||'').toLowerCase().indexOf(q) !== -1;
+        if(!titleMatch && !msgMatch) return false;
+      }
       return true;
     });
 
     if(!filteredData || filteredData.length === 0){
+      if(q) return; // no match for this intent under current search — just skip it silently
       html += '<div class="empty-intent" style="margin-bottom:16px">'
             + '<div class="empty-intent-icon">' + (intent.icon||'📭') + '</div>'
             + '<div class="empty-intent-title">No templates for this filter</div>'
@@ -951,8 +1001,14 @@ function renderP1(){
             var agent = (m.agent&&m.agent!=='nan') ? m.agent : (m.group&&m.group!=='nan') ? m.group : '';
             var rawMsg = m.msg || '';
             var isLong = rawMsg.length > 120;
-            var msgShort = esc(isLong ? rawMsg.substring(0,117)+'…' : rawMsg);
-            var msgFull  = esc(rawMsg);
+            // if searching and the match sits outside the short preview, expand the card so the match is visible
+            var forceExpand = false;
+            if(q && isLong){
+              var matchIdx = rawMsg.toLowerCase().indexOf(q);
+              if(matchIdx !== -1 && matchIdx >= 117) forceExpand = true;
+            }
+            var msgShort = highlight(isLong ? rawMsg.substring(0,117)+'…' : rawMsg, esc);
+            var msgFull  = highlight(rawMsg, esc);
 
             var tagsHtml = '';
             if(region) tagsHtml += '<span class="tag t-region">' + esc(region) + '</span>';
@@ -968,11 +1024,12 @@ function renderP1(){
               if(isLong) msgHtml += '<div class="msg-expand-hint">&#9662; click to read full message</div>';
             }
 
-            html += '<div class="msg-item live-card" onclick="toggleMsg(this)">';
+            totalMatched++;
+            html += '<div class="msg-item live-card' + (forceExpand?' expanded':'') + '" onclick="toggleMsg(this)">';
             html += '<div class="msg-status"><span class="dot-live"></span><span style="color:var(--live);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Live</span>';
             if(m.audience==='digital') html += '<span class="audience-badge audience-digital" style="margin-left:8px;">Digital</span>';
             html += '</div>';
-            html += '<div class="msg-title">' + esc(m.title) + '</div>';
+            html += '<div class="msg-title">' + highlight(m.title, esc) + '</div>';
             if(tagsHtml) html += '<div class="msg-tags" style="margin-bottom:6px">' + tagsHtml + '</div>';
             html += msgHtml;
             html += '</div>';
@@ -986,8 +1043,16 @@ function renderP1(){
     });
   });
 
+  if(q && totalMatched === 0){
+    html = '<div class="empty-intent"><div class="empty-intent-icon">🔍</div>'
+         + '<div class="empty-intent-title">No message matches &ldquo;' + esc(searchQuery) + '&rdquo;</div>'
+         + '<div class="empty-intent-sub">Try a shorter word, or clear the search to see everything.</div></div>';
+  }
+
   document.getElementById('p1-content').innerHTML = html || '<div class="empty-intent"><div class="empty-intent-icon">📭</div><div class="empty-intent-title">No data</div></div>';
   document.getElementById('b1').textContent = totalLive;
+  var countEl = document.getElementById('p1-search-count');
+  if(countEl) countEl.textContent = q ? (totalMatched + (totalMatched===1?' match':' matches')) : '';
 }
 
 /* ── SMS CALCULATOR ── */
