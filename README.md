@@ -19,10 +19,13 @@ The six main customer scenarios (Order Confirmed, Order Pickup, Pickup Reminders
 Country-level SMS cost projection based on 2025 order volumes and current Clickatell telco rates.
 
 **Tab 5 — Twilio SMS Calculator**
-Same cost model as Tab 4, using Twilio's contracted rates (Order Form 00142240.0, effective Aug 1, 2025) instead of Clickatell's. Built to estimate the cost of sending B&M SMS through Iterable, which routes via Twilio. Covers only the 55 countries priced in the current Twilio contract — other countries fall back to Twilio's public rate card (twilio.com/pricing), which is not reflected in this tab. US and Canada rates exclude an additional, unquantified carrier-fee surcharge (twilio.com/sms/pricing). A subset of priced countries have no order-volume data on file and require manual entry.
+Same cost model as Tab 4, using Twilio's contracted rates (Order Form 00142240.0, effective Aug 1, 2025) instead of Clickatell's. Built to estimate the cost of sending B&M SMS through Iterable, which routes via Twilio. Covers only the 57 countries priced in the current Twilio contract — other countries fall back to Twilio's public rate card (twilio.com/pricing), which is not reflected in this tab. US and Canada rates exclude an additional, unquantified carrier-fee surcharge (twilio.com/sms/pricing). 11 priced countries have no order-volume data on file and require manual entry.
 
 **Tab 6 — Global Deployment Cost**
-Executive view of projected SMS spend across all 139 markets. Sortable by any column. Filter by region or individual country.
+Executive view of projected SMS spend across all 139 markets, using Clickatell rates. Sortable by any column. Filter by region or individual country.
+
+**Tab 7 — Global Deployment Twilio**
+Same view as Tab 6, using Twilio's rate card. Covers 46 markets — the subset of the 57 Twilio-priced countries that also have order-volume data on file. The 11 without order data are listed in-tab rather than estimated.
 
 ## Data sources
 - **B&M messaging templates** — Clickatell
@@ -40,7 +43,7 @@ When a new message is added to the library, copy the row into the relevant sheet
 Sheet structure mirrors the library exactly:
 `Product type | Channel | Event that triggers the message send | Message template title | Message | Subject | Language | Send system | Message recipient | From address | Format type | Service | Payment method | Country to | B&M email message incl. HTML | MessageID | Event ID | Agent Company | Intent`
 
-Note: the SMS cost calculators (Tabs 4 and 5) and the Global Deployment Cost tab (Tab 6) are **not** sheet-fed — country rates, order volumes, and US participation rates are hardcoded in `index.html`. Updating a rate in either calculator requires a code edit and a new push, not a sheet update.
+Note: the SMS cost calculators (Tabs 4 and 5) and both Global Deployment Cost tabs (Tabs 6 and 7) are **not** sheet-fed — country rates, order volumes, and US participation rates are hardcoded in `index.html`. Updating a rate in any of these requires a code edit and a new push, not a sheet update.
 
 ## How to update the dashboard interface
 Replace `index.html` in this repository with the new version. The URL stays the same.
