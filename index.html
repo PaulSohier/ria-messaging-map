@@ -241,9 +241,10 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 
 <nav class="nav">
   <div class="nav-tab active" onclick="switchTab('p0',this)">🔀 Message flow map</div>
-  <div class="nav-tab" onclick="switchTab('p1',this)">📨 What fires when <span class="nbadge" id="b1"></span></div>
+  <div class="nav-tab" onclick="switchTab('p1',this)">📨 Messages Library <span class="nbadge" id="b1"></span></div>
   <div class="nav-tab" onclick="switchTab('p2',this)">🧭 Customer journeys</div>
   <div class="nav-tab" onclick="switchTab('p3',this)">💰 SMS cost calculator</div>
+  <div class="nav-tab" onclick="switchTab('p5',this)">📶 Twilio SMS calculator</div>
   <div class="nav-tab" onclick="switchTab('p4',this)">🌍 Global deployment cost</div>
   <div style="margin-left:auto;display:flex;align-items:center;padding:0 8px;"><span id="sheet-indicator" style="font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap;"></span></div>
 </nav>
@@ -251,7 +252,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 <div class="intent-bar" id="intent-bar"></div>
 
 <div class="page active" id="p0"><div class="page-title">Message flow map <span class="page-note">Live routes — library to recipient · filtered by selected intent</span></div><div id="p0-content"></div></div>
-<div class="page" id="p1"><div class="page-title">What fires when <span class="page-note">Every template grouped by event and channel · click event to expand</span></div>
+<div class="page" id="p1"><div class="page-title">Messages Library <span class="page-note">Every template grouped by event and channel · click event to expand</span></div>
 <div style="display:flex;align-items:center;margin-bottom:14px;">
   <div class="search-wrap">
     <span class="search-icon">&#128269;</span>
@@ -263,6 +264,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 <div id="p1-content"></div></div>
 <div class="page" id="p2"><div class="page-title">Customer journeys <span class="page-note">What messages a customer receives — happy and unhappy paths</span></div><div id="p2-content"></div></div>
 <div class="page" id="p3"><div class="page-title">SMS cost calculator <span class="page-note">Projected spend by event type — fill in total orders and per-SMS cost to calculate</span></div><div id="p3-content"></div></div>
+<div class="page" id="p5"><div class="page-title">Twilio SMS calculator <span class="page-note">Same model, Twilio rate card — covers the 55 countries in the current Twilio contract</span></div><div id="p5-content"></div></div>
 <div class="page" id="p4"><div class="page-title">Global deployment cost <span class="page-note">Projected annual SMS cost of deploying US notification coverage to all active markets</span></div><div id="p4-content"></div></div>
 
 
@@ -392,6 +394,7 @@ function renderPage(id){
   if(id==='p1') renderP1();
   if(id==='p2') renderJourneys();
   if(id==='p3') renderCalc();
+  if(id==='p5') renderCalcTwilio();
   if(id==='p4') renderGlobalCost();
 }
 
@@ -1234,6 +1237,210 @@ function recalcSMS(){
   const totalCostEl = document.getElementById('calc-total-cost');
   const totalMsgsEl = document.getElementById('calc-total-msgs');
   const cpoEl       = document.getElementById('calc-cost-per-order');
+
+  if(totalCostEl) totalCostEl.textContent = grandTotal > 0
+    ? '$' + grandTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+  if(totalMsgsEl) totalMsgsEl.textContent = grandMsgs > 0
+    ? Math.round(grandMsgs).toLocaleString('en-US') : '—';
+  if(cpoEl && grandTotal > 0 && totalOrders > 0)
+    cpoEl.textContent = '$' + (grandTotal / totalOrders).toFixed(4);
+  else if(cpoEl) cpoEl.textContent = '—';
+}
+
+
+/* ── TWILIO SMS CALCULATOR ── */
+/* Rate source: Twilio Order Form 00142240.0 (Dandelion Payments Inc), effective Aug 1, 2025, Exhibit A rate schedule.
+   Uses the "Other" carrier rate per country as the default. Covers only the 55 countries priced in that contract —
+   this is intentional: unlisted countries fall back to Twilio's public rate card (twilio.com/pricing), which isn't
+   reflected here, so we don't guess at rates we don't have on file.
+   US and Canada rows carry an additional, unquantified "Carrier Fees" surcharge per the contract footnote —
+   flagged in the banner below rather than folded into the number silently. */
+function renderCalcTwilio(){
+  const TWILIO_SMS_COSTS = {"Algeria":0.2163,"Argentina":0.0748,"Australia":0.01803,"Austria":0.06657,"Belgium":0.088,"Botswana":0.06786,"Canada":0.00356,"Cayman Islands":0.2476,"Chile":0.03274,"Colombia":0.01365,"Croatia":0.07453,"Denmark":0.0524,"El Salvador":0.12886,"Equatorial Guinea":0.15907,"Finland":0.07921,"France":0.04708,"Germany":0.07708,"Greece":0.05704,"Guadeloupe":0.12689,"Guatemala":0.16986,"Haiti":0.21675,"Honduras":0.20664,"India":0.07821,"Ireland":0.06174,"Israel":0.20285,"Italy":0.05562,"Laos":0.2389,"Lithuania":0.05014,"Luxembourg":0.0818,"Malaysia":0.21257,"Martinique":0.10648,"Mexico":0.14589,"Morocco":0.20645,"Netherlands":0.08887,"New Zealand":0.084,"Nicaragua":0.10635,"Niger":0.2971,"Norway":0.05989,"Palestine":0.35595,"Panama":0.14549,"Paraguay":0.11114,"Peru":0.20798,"Philippines":0.2001,"Poland":0.02931,"Portugal":0.03216,"Puerto Rico":0.02856,"Reunion":0.12995,"Senegal":0.2594,"Singapore":0.04002,"Spain":0.05161,"Sweden":0.04141,"Switzerland":0.03553,"Togo":0.23698,"Tunisia":0.3428,"United Arab Emirates":0.10046,"United Kingdom":0.03797,"United States":0.00474};
+  const CARRIER_FEE_COUNTRIES = ["Canada","United States"];
+  // Order volumes reused from existing B&M order data (COUNTRY_ORDERS) where the country overlaps.
+  // Countries priced by Twilio but with no order-volume data on file are set to 0, which triggers the
+  // same "No data — enter manually" fallback used elsewhere in this dashboard.
+  const COUNTRY_ORDERS = {"Algeria":0,"Argentina":59436,"Australia":2210390,"Austria":581002,"Belgium":2779711,"Botswana":550,"Canada":4843159,"Cayman Islands":1,"Chile":2893904,"Colombia":0,"Croatia":4,"Denmark":493048,"El Salvador":3617,"Equatorial Guinea":0,"Finland":86847,"France":15495103,"Germany":6274832,"Greece":440435,"Guadeloupe":0,"Guatemala":14859,"Haiti":0,"Honduras":128,"India":15,"Ireland":252109,"Israel":370058,"Italy":10219696,"Laos":53,"Lithuania":8059,"Luxembourg":176191,"Malaysia":4051990,"Martinique":0,"Mexico":0,"Morocco":30419,"Netherlands":1099610,"New Zealand":508403,"Nicaragua":3,"Niger":4771,"Norway":490052,"Palestine":0,"Panama":61,"Paraguay":479,"Peru":139,"Philippines":5761,"Poland":70433,"Portugal":1138144,"Puerto Rico":0,"Reunion":0,"Senegal":175581,"Singapore":95358,"Spain":17938861,"Sweden":540774,"Switzerland":1547206,"Togo":36264,"Tunisia":0,"United Arab Emirates":61984,"United Kingdom":5012286,"United States":69927961};
+  const US_EVENTS = [{"name": "Transaction Ready for Pickup", "count": 24928310, "pct": 35.6486, "note": "24,928,310 notifications sent in 2025 (35.6486% of 69,927,961 US orders)"}, {"name": "Transaction Paid", "count": 24473515, "pct": 34.9982, "note": "24,473,515 notifications sent in 2025 (34.9982% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (3 Days)", "count": 466797, "pct": 0.6675, "note": "466,797 notifications sent in 2025 (0.6675% of 69,927,961 US orders)"}, {"name": "Transaction Canceled", "count": 169207, "pct": 0.242, "note": "169,207 notifications sent in 2025 (0.242% of 69,927,961 US orders)"}, {"name": "Strategic Retail Partners - Refund Completed", "count": 168439, "pct": 0.2409, "note": "168,439 notifications sent in 2025 (0.2409% of 69,927,961 US orders)"}, {"name": "Strategic Retail Partners - Available for Refund", "count": 168228, "pct": 0.2406, "note": "168,228 notifications sent in 2025 (0.2406% of 69,927,961 US orders)"}, {"name": "Transaction Needs Information", "count": 125012, "pct": 0.1788, "note": "125,012 notifications sent in 2025 (0.1788% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (7 Days)", "count": 97481, "pct": 0.1394, "note": "97,481 notifications sent in 2025 (0.1394% of 69,927,961 US orders)"}, {"name": "Transaction Resent", "count": 43828, "pct": 0.0627, "note": "43,828 notifications sent in 2025 (0.0627% of 69,927,961 US orders)"}, {"name": "Customer Opt-In", "count": 39912, "pct": 0.0571, "note": "39,912 notifications sent in 2025 (0.0571% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (14 Days)", "count": 33822, "pct": 0.0484, "note": "33,822 notifications sent in 2025 (0.0484% of 69,927,961 US orders)"}, {"name": "Agent activated due to paid credit", "count": 24078, "pct": 0.0344, "note": "24,078 notifications sent in 2025 (0.0344% of 69,927,961 US orders)"}, {"name": "Transaction Rejected", "count": 21097, "pct": 0.0302, "note": "21,097 notifications sent in 2025 (0.0302% of 69,927,961 US orders)"}, {"name": "Requires interview", "count": 16610, "pct": 0.0238, "note": "16,610 notifications sent in 2025 (0.0238% of 69,927,961 US orders)"}, {"name": "Refund Reminder (3 Day)", "count": 30414, "pct": 0.0435, "note": "30,414 notifications sent in 2025 (0.0435% of 69,927,961 US orders)"}, {"name": "Refund Reminder (7 Day)", "count": 19123, "pct": 0.0273, "note": "19,123 notifications sent in 2025 (0.0273% of 69,927,961 US orders)"}, {"name": "Refund Reminder (14 Day)", "count": 14699, "pct": 0.021, "note": "14,699 notifications sent in 2025 (0.021% of 69,927,961 US orders)"}, {"name": "Agent suspended due to past-due balance", "count": 11480, "pct": 0.0164, "note": "11,480 notifications sent in 2025 (0.0164% of 69,927,961 US orders)"}, {"name": "Transaction Ready for Refund", "count": 9604, "pct": 0.0137, "note": "9,604 notifications sent in 2025 (0.0137% of 69,927,961 US orders)"}, {"name": "Agent suspended 7 days reminder", "count": 2948, "pct": 0.0042, "note": "2,948 notifications sent in 2025 (0.0042% of 69,927,961 US orders)"}, {"name": "Agent suspended 15 days reminder", "count": 2700, "pct": 0.0039, "note": "2,700 notifications sent in 2025 (0.0039% of 69,927,961 US orders)"}, {"name": "Transaction Cancelled (Time Limit Expired)", "count": 1980, "pct": 0.0028, "note": "1,980 notifications sent in 2025 (0.0028% of 69,927,961 US orders)"}, {"name": "Refund Reminder (1 Day)", "count": 522, "pct": 0.0007, "note": "522 notifications sent in 2025 (0.0007% of 69,927,961 US orders)"}, {"name": "Refund Reminder (2 Day)", "count": 431, "pct": 0.0006, "note": "431 notifications sent in 2025 (0.0006% of 69,927,961 US orders)"}, {"name": "Refund Reminder (20 Day)", "count": 189, "pct": 0.0003, "note": "189 notifications sent in 2025 (0.0003% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (1 Day)", "count": 42, "pct": 0.0001, "note": "42 notifications sent in 2025 (0.0001% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (2 Days)", "count": 42, "pct": 0.0001, "note": "42 notifications sent in 2025 (0.0001% of 69,927,961 US orders)"}, {"name": "Transaction Sent To Be Paid", "count": 2, "pct": 0.0, "note": "2 notifications sent in 2025 (0.0% of 69,927,961 US orders)"}, {"name": "Transaction Cancelled (Test Transaction)", "count": 1, "pct": 0.0, "note": "1 notifications sent in 2025 (0.0% of 69,927,961 US orders)"}];
+  const US_TOTAL_ORDERS = 69927961;
+
+  const calcCountries = Object.keys(TWILIO_SMS_COSTS).sort();
+  const countryOptions = calcCountries.map(function(co){
+    return '<option value="'+co+'"'+(co==='United States'?' selected':'')+'>'+co+'</option>';
+  }).join('');
+
+  let rows = '';
+  US_EVENTS.forEach(function(ev, i){
+    rows += '<tr class="calc-data-row" id="tr'+i+'">'
+      + '<td class="calc-name-cell" style="font-size:12px;">'+ev.name+'</td>'
+      + '<td class="calc-input-cell">'
+      +   '<input type="number" class="calc-input calc-pct-input-tw" id="tr'+i+'_pct" '
+      +   'value="'+ev.pct+'" step="0.0001" min="0" max="100" oninput="recalcSMSTwilio()">'
+      + '</td>'
+      + '<td class="calc-input-cell">'
+      +   '<input type="number" class="calc-input calc-cost-input-tw" id="tr'+i+'_cost" '
+      +   'step="0.0001" min="0" oninput="recalcSMSTwilio()" readonly '
+      +   'style="background:var(--purple-bg);color:var(--purple);font-weight:600;cursor:default;">'
+      + '</td>'
+      + '<td class="calc-orders-cell" id="tr'+i+'_orders">—</td>'
+      + '<td class="calc-result-cell" id="tr'+i+'_result">—</td>'
+      + '<td class="calc-notes-cell">'+ev.note+'</td>'
+      + '</tr>';
+  });
+
+  const html = '<div class="calc-wrap">'
+
+    + '<div style="background:#F0FBF4;border:1px solid #97C459;border-radius:var(--radius);padding:12px 18px;margin-bottom:14px;font-size:12px;color:#27500A;line-height:1.7;">'
+    + '<strong>How to read this calculator</strong><br>'
+    + 'Same model as the main SMS cost calculator, using Twilio\'s contracted rates (Order Form 00142240.0, effective Aug 1, 2025) instead of Clickatell\'s. '
+    + 'Participation % = share of total orders that triggered each SMS event, based on US Power BI data (Jan–Dec 2025), used as a proxy for all countries. '
+    + 'Total orders and SMS cost auto-fill when you select a country. All fields remain editable.'
+    + '</div>'
+
+    + '<div style="background:#FDF5E8;border:1px solid #EF9F27;border-radius:var(--radius);padding:10px 18px;margin-bottom:20px;font-size:11px;color:#633806;line-height:1.6;">'
+    + '<strong>Scope &amp; known gaps</strong><br>'
+    + 'Covers only the 55 countries priced in the current Twilio contract — countries not listed fall back to Twilio\'s public rate card (twilio.com/pricing), not reflected here. '
+    + 'US and Canada rates carry an additional, unquantified carrier-fee surcharge per the contract (see twilio.com/sms/pricing) — not included in the figures below. '
+    + 'Algeria, Colombia, Equatorial Guinea, Guadeloupe, Haiti, Martinique, Mexico, Palestine, Puerto Rico, Réunion, and Tunisia have a Twilio rate but no order-volume data on file — enter total orders manually for those.'
+    + '</div>'
+
+    + '<div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;padding:0 0 20px;border-bottom:1px solid var(--border);margin-bottom:20px;">'
+
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Country</label>'
+    + '<select id="calc-country-tw" onchange="calcSetCountryTwilio()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;font-weight:500;color:var(--text);cursor:pointer;min-width:180px;">'
+    + countryOptions
+    + '</select>'
+    + '<div style="font-size:9px;color:var(--hint);margin-top:2px;">Auto-fills SMS cost · 55 countries only</div>'
+    + '</div>'
+
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Cost per SMS</label>'
+    + '<div id="calc-cost-display-tw" style="padding:8px 14px;border-radius:7px;border:1px solid var(--border);background:var(--purple-bg);font-size:13px;font-weight:600;color:var(--purple);min-width:110px;">—</div>'
+    + '<div id="calc-carrier-fee-note-tw" style="font-size:9px;color:var(--hint);margin-top:2px;">Twilio "Other" carrier rate</div>'
+    + '</div>'
+
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Total orders</label>'
+    + '<input id="totalOrders-tw" type="number" value="'+US_TOTAL_ORDERS+'" min="1" oninput="recalcSMSTwilio()" '
+    + 'style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;font-weight:500;color:var(--text);width:170px;">'
+    + '<div style="font-size:9px;color:var(--hint);margin-top:2px;">Auto-filled by country · editable</div>'
+    + '</div>'
+
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Billing units / SMS</label>'
+    + '<input id="calc-segments-tw" type="number" value="2" min="1" max="10" step="1" oninput="recalcSMSTwilio()" '
+    + 'style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;font-weight:500;color:var(--text);width:120px;">'
+    + '<div style="font-size:9px;color:var(--hint);margin-top:2px;">166 chars=1 · 332=2 · 498=3</div>'
+    + '</div>'
+
+    + '</div>'
+
+    + '<div style="display:flex;align-items:center;gap:28px;padding:14px 20px;background:var(--purple-bg);border-radius:var(--radius);margin-bottom:20px;flex-wrap:wrap;">'
+    + '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--purple);margin-bottom:3px;">Total projected SMS cost</div>'
+    +   '<div id="calc-total-cost-tw" style="font-size:26px;font-weight:700;color:var(--purple);">—</div></div>'
+    + '<div style="width:1px;height:40px;background:rgba(60,52,137,.2);"></div>'
+    + '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--purple);margin-bottom:3px;">Total projected SMS messages sent</div>'
+    +   '<div id="calc-total-msgs-tw" style="font-size:26px;font-weight:700;color:var(--purple);">—</div></div>'
+    + '<div style="width:1px;height:40px;background:rgba(60,52,137,.2);"></div>'
+    + '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--purple);margin-bottom:3px;">Cost per order</div>'
+    +   '<div id="calc-cost-per-order-tw" style="font-size:26px;font-weight:700;color:var(--purple);">—</div></div>'
+    + '<div style="font-size:11px;color:var(--purple);opacity:.75;max-width:300px;">'
+    + 'Twilio rate card × US 2025 participation rates (proxy) × selected country orders. Excludes carrier fees. All fields editable.'
+    + '</div>'
+    + '</div>'
+
+    + '<div class="calc-table-wrap">'
+    + '<table class="calc-table"><thead><tr>'
+    + '<th class="calc-th-name">Event</th>'
+    + '<th class="calc-th-num" style="min-width:110px;">Participation %<br><span class="calc-th-sub">of total orders — US 2025</span></th>'
+    + '<th class="calc-th-cost" style="min-width:110px;">Cost / SMS<br><span class="calc-th-sub">auto-filled by country</span></th>'
+    + '<th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--hint);border-bottom:1px solid var(--border);min-width:110px;">Est. messages sent</th>'
+    + '<th class="calc-th-result" style="min-width:130px;">Total projected cost</th>'
+    + '<th class="calc-th-notes">Source — US Power BI 2025</th>'
+    + '</tr></thead><tbody>'
+    + rows
+    + '</tbody></table>'
+    + '</div></div>';
+
+  document.getElementById('p5-content').innerHTML = html;
+  window._calcSMSCostsTwilio = TWILIO_SMS_COSTS;
+  window._calcCountryOrdersTwilio = COUNTRY_ORDERS;
+  window._carrierFeeCountriesTwilio = CARRIER_FEE_COUNTRIES;
+  calcSetCountryTwilio();
+}
+
+function calcSetCountryTwilio(){
+  const costs = window._calcSMSCostsTwilio;
+  const orders = window._calcCountryOrdersTwilio;
+  const feeCountries = window._carrierFeeCountriesTwilio || [];
+  if(!costs) return;
+  const sel = document.getElementById('calc-country-tw');
+  if(!sel) return;
+  const country = sel.value;
+  const cost = costs[country] || 0;
+  const display = document.getElementById('calc-cost-display-tw');
+  if(display) display.textContent = '$' + cost.toFixed(5);
+  document.querySelectorAll('.calc-cost-input-tw').forEach(function(input){
+    input.value = cost;
+  });
+  const feeNote = document.getElementById('calc-carrier-fee-note-tw');
+  if(feeNote){
+    feeNote.textContent = feeCountries.indexOf(country) !== -1
+      ? '+ unquantified carrier fees (see twilio.com/sms/pricing)'
+      : 'Twilio "Other" carrier rate';
+  }
+  if(orders && orders[country] !== undefined){
+    const ordersEl = document.getElementById('totalOrders-tw');
+    if(ordersEl){
+      if(orders[country] === 0){
+        ordersEl.value = '';
+        ordersEl.placeholder = 'No data — enter manually';
+      } else {
+        ordersEl.value = orders[country];
+        ordersEl.placeholder = '';
+      }
+    }
+  }
+  recalcSMSTwilio();
+}
+
+function recalcSMSTwilio(){
+  const totalOrders = parseFloat(document.getElementById('totalOrders-tw') ? document.getElementById('totalOrders-tw').value : 0) || 0;
+  const segs        = parseFloat(document.getElementById('calc-segments-tw') ? document.getElementById('calc-segments-tw').value : 2) || 1;
+  let grandTotal = 0;
+  let grandMsgs  = 0;
+
+  document.querySelectorAll('.calc-data-row[id^="tr"]').forEach(function(row){
+    const rid    = row.id;
+    const pctEl  = document.getElementById(rid + '_pct');
+    const costEl = document.getElementById(rid + '_cost');
+    const resEl  = document.getElementById(rid + '_result');
+    const ordEl  = document.getElementById(rid + '_orders');
+    if(!pctEl || !costEl || !resEl) return;
+    const pct   = parseFloat(pctEl.value)  / 100 || 0;
+    const cost  = parseFloat(costEl.value) || 0;
+    const msgs  = Math.round(totalOrders * pct);
+    const total = msgs * cost * segs;
+
+    if(ordEl) ordEl.textContent = msgs > 0 ? msgs.toLocaleString('en-US') : '—';
+
+    if(pct > 0 && cost > 0 && totalOrders > 0){
+      resEl.textContent = '$' + total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+      resEl.className = 'calc-result-cell calc-result-filled';
+      grandTotal += total;
+      grandMsgs  += msgs;
+    } else {
+      resEl.textContent = '—';
+      resEl.className = 'calc-result-cell';
+      if(pct > 0 && totalOrders > 0) grandMsgs += msgs;
+    }
+  });
+
+  const totalCostEl = document.getElementById('calc-total-cost-tw');
+  const totalMsgsEl = document.getElementById('calc-total-msgs-tw');
+  const cpoEl       = document.getElementById('calc-cost-per-order-tw');
 
   if(totalCostEl) totalCostEl.textContent = grandTotal > 0
     ? '$' + grandTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
