@@ -1285,6 +1285,9 @@ function renderCalc(){
   const US_EVENTS = [{"name": "Transaction Ready for Pickup", "count": 24928310, "pct": 35.6486, "note": "24,928,310 notifications sent in 2025 (35.6486% of 69,927,961 US orders)"}, {"name": "Transaction Paid", "count": 24473515, "pct": 34.9982, "note": "24,473,515 notifications sent in 2025 (34.9982% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (3 Days)", "count": 466797, "pct": 0.6675, "note": "466,797 notifications sent in 2025 (0.6675% of 69,927,961 US orders)"}, {"name": "Transaction Canceled", "count": 169207, "pct": 0.242, "note": "169,207 notifications sent in 2025 (0.242% of 69,927,961 US orders)"}, {"name": "Strategic Retail Partners - Refund Completed", "count": 168439, "pct": 0.2409, "note": "168,439 notifications sent in 2025 (0.2409% of 69,927,961 US orders)"}, {"name": "Strategic Retail Partners - Available for Refund", "count": 168228, "pct": 0.2406, "note": "168,228 notifications sent in 2025 (0.2406% of 69,927,961 US orders)"}, {"name": "Transaction Needs Information", "count": 125012, "pct": 0.1788, "note": "125,012 notifications sent in 2025 (0.1788% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (7 Days)", "count": 97481, "pct": 0.1394, "note": "97,481 notifications sent in 2025 (0.1394% of 69,927,961 US orders)"}, {"name": "Transaction Resent", "count": 43828, "pct": 0.0627, "note": "43,828 notifications sent in 2025 (0.0627% of 69,927,961 US orders)"}, {"name": "Customer Opt-In", "count": 39912, "pct": 0.0571, "note": "39,912 notifications sent in 2025 (0.0571% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (14 Days)", "count": 33822, "pct": 0.0484, "note": "33,822 notifications sent in 2025 (0.0484% of 69,927,961 US orders)"}, {"name": "Agent activated due to paid credit", "count": 24078, "pct": 0.0344, "note": "24,078 notifications sent in 2025 (0.0344% of 69,927,961 US orders)"}, {"name": "Transaction Rejected", "count": 21097, "pct": 0.0302, "note": "21,097 notifications sent in 2025 (0.0302% of 69,927,961 US orders)"}, {"name": "Requires interview", "count": 16610, "pct": 0.0238, "note": "16,610 notifications sent in 2025 (0.0238% of 69,927,961 US orders)"}, {"name": "Refund Reminder (3 Day)", "count": 30414, "pct": 0.0435, "note": "30,414 notifications sent in 2025 (0.0435% of 69,927,961 US orders)"}, {"name": "Refund Reminder (7 Day)", "count": 19123, "pct": 0.0273, "note": "19,123 notifications sent in 2025 (0.0273% of 69,927,961 US orders)"}, {"name": "Refund Reminder (14 Day)", "count": 14699, "pct": 0.021, "note": "14,699 notifications sent in 2025 (0.021% of 69,927,961 US orders)"}, {"name": "Agent suspended due to past-due balance", "count": 11480, "pct": 0.0164, "note": "11,480 notifications sent in 2025 (0.0164% of 69,927,961 US orders)"}, {"name": "Transaction Ready for Refund", "count": 9604, "pct": 0.0137, "note": "9,604 notifications sent in 2025 (0.0137% of 69,927,961 US orders)"}, {"name": "Agent suspended 7 days reminder", "count": 2948, "pct": 0.0042, "note": "2,948 notifications sent in 2025 (0.0042% of 69,927,961 US orders)"}, {"name": "Agent suspended 15 days reminder", "count": 2700, "pct": 0.0039, "note": "2,700 notifications sent in 2025 (0.0039% of 69,927,961 US orders)"}, {"name": "Transaction Cancelled (Time Limit Expired)", "count": 1980, "pct": 0.0028, "note": "1,980 notifications sent in 2025 (0.0028% of 69,927,961 US orders)"}, {"name": "Refund Reminder (1 Day)", "count": 522, "pct": 0.0007, "note": "522 notifications sent in 2025 (0.0007% of 69,927,961 US orders)"}, {"name": "Refund Reminder (2 Day)", "count": 431, "pct": 0.0006, "note": "431 notifications sent in 2025 (0.0006% of 69,927,961 US orders)"}, {"name": "Refund Reminder (20 Day)", "count": 189, "pct": 0.0003, "note": "189 notifications sent in 2025 (0.0003% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (1 Day)", "count": 42, "pct": 0.0001, "note": "42 notifications sent in 2025 (0.0001% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (2 Days)", "count": 42, "pct": 0.0001, "note": "42 notifications sent in 2025 (0.0001% of 69,927,961 US orders)"}, {"name": "Transaction Sent To Be Paid", "count": 2, "pct": 0.0, "note": "2 notifications sent in 2025 (0.0% of 69,927,961 US orders)"}, {"name": "Transaction Cancelled (Test Transaction)", "count": 1, "pct": 0.0, "note": "1 notifications sent in 2025 (0.0% of 69,927,961 US orders)"}];
   const US_TOTAL_ORDERS = 69927961;
   const US_TOTAL_SMS    = 50870513;
+  const US_TOTAL_CUSTOMERS = 8375496;
+  const US_SMS_OPTIN    = 2181880;
+  const OPTIN_BASELINE_PCT = +(100 * US_SMS_OPTIN / US_TOTAL_CUSTOMERS).toFixed(2); // 26.05
 
   const calcCountries = Object.keys(SMS_COSTS).sort();
   const countryOptions = calcCountries.map(function(co){
@@ -1319,7 +1322,10 @@ function renderCalc(){
     + 'Participation % = share of total orders that triggered each SMS event, based on US Power BI data (Jan–Dec 2025). '
     + 'These US rates are used as a proxy for all countries — representing the cost of rolling out the US SMS event system globally. '
     + 'Total orders and SMS cost auto-fill when you select a country. All fields remain editable. '
-    + 'Most Ria messages are ~200 characters, which spans 2 telco billing units of 160 characters each. This is factored into the cost calculation automatically.'
+    + 'Most Ria messages are ~200 characters, which spans 2 telco billing units of 160 characters each. This is factored into the cost calculation automatically. '
+    + '<strong>SMS opt-in scenario</strong> (below) is separate from participation % — it models what happens if the share of customers opted in to SMS changes. '
+    + 'Baseline is today\'s US rate: '+US_SMS_OPTIN.toLocaleString('en-US')+' of '+US_TOTAL_CUSTOMERS.toLocaleString('en-US')+' US customers ('+OPTIN_BASELINE_PCT+'%). '
+    + 'Used as a proxy for all countries, same as participation % — no other market has its own opt-in data on file yet.'
     + '</div>'
 
     // ── Controls ──
@@ -1357,6 +1363,16 @@ function renderCalc(){
     + '<div style="font-size:9px;color:var(--hint);margin-top:2px;">166 chars=1 · 332=2 · 498=3</div>'
     + '</div>'
 
+    // SMS opt-in scenario
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">SMS opt-in scenario</label>'
+    + '<div style="display:flex;align-items:center;gap:10px;">'
+    + '<input id="calc-optin-slider" type="range" min="0" max="100" step="1" value="'+Math.round(OPTIN_BASELINE_PCT)+'" oninput="calcOptInSlide()" style="width:150px;accent-color:var(--purple);">'
+    + '<span id="calc-optin-value" style="font-size:13px;font-weight:700;color:var(--purple);min-width:70px;">'+Math.round(OPTIN_BASELINE_PCT)+'% opt-in</span>'
+    + '</div>'
+    + '<div id="calc-optin-note" style="font-size:9px;color:var(--hint);margin-top:2px;">Baseline ('+OPTIN_BASELINE_PCT+'%) · 1.00× cost</div>'
+    + '</div>'
+
     + '</div>' // end controls
 
     // ── Summary strip ──
@@ -1370,7 +1386,7 @@ function renderCalc(){
     + '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--purple);margin-bottom:3px;">Cost per order</div>'
     +   '<div id="calc-cost-per-order" style="font-size:26px;font-weight:700;color:var(--purple);">—</div></div>'
     + '<div style="font-size:11px;color:var(--purple);opacity:.75;max-width:300px;">'
-    + 'Based on US 2025 participation rates (proxy) × selected country orders × country SMS cost. All fields editable.'
+    + 'Based on US 2025 participation rates (proxy) × selected country orders × country SMS cost × opt-in scenario multiplier. All fields editable.'
     + '</div>'
     + '</div>'
 
@@ -1391,7 +1407,26 @@ function renderCalc(){
   document.getElementById('p3-content').innerHTML = html;
   window._calcSMSCosts = SMS_COSTS;
   window._calcCountryOrders = COUNTRY_ORDERS;
+  window._calcOptInBaselinePct = OPTIN_BASELINE_PCT;
   calcSetCountry();
+}
+
+function calcOptInSlide(){
+  const slider = document.getElementById('calc-optin-slider');
+  const valueEl = document.getElementById('calc-optin-value');
+  const noteEl = document.getElementById('calc-optin-note');
+  const baseline = window._calcOptInBaselinePct || 26.05;
+  if(slider && valueEl){
+    const v = parseFloat(slider.value);
+    valueEl.textContent = v + '% opt-in';
+    if(noteEl){
+      const mult = v / baseline;
+      noteEl.textContent = v === Math.round(baseline)
+        ? 'Baseline ('+baseline+'%) · 1.00× cost'
+        : mult.toFixed(2)+'× baseline cost ('+baseline+'% → '+v+'%)';
+    }
+  }
+  recalcSMS();
 }
 
 function calcSetCountry(){
@@ -1425,6 +1460,10 @@ function calcSetCountry(){
 function recalcSMS(){
   const totalOrders = parseFloat(document.getElementById('totalOrders') ? document.getElementById('totalOrders').value : 0) || 0;
   const segs        = parseFloat(document.getElementById('calc-segments') ? document.getElementById('calc-segments').value : 2) || 1;
+  const optinSliderEl = document.getElementById('calc-optin-slider');
+  const optinBaseline = window._calcOptInBaselinePct || 26.05;
+  const optinPct    = optinSliderEl ? parseFloat(optinSliderEl.value) : optinBaseline;
+  const optinMult   = optinBaseline > 0 ? (optinPct / optinBaseline) : 1;
   let grandTotal = 0;
   let grandMsgs  = 0;
 
@@ -1437,7 +1476,7 @@ function recalcSMS(){
     if(!pctEl || !costEl || !resEl) return;
     const pct   = parseFloat(pctEl.value)  / 100 || 0;
     const cost  = parseFloat(costEl.value) || 0;
-    const msgs  = Math.round(totalOrders * pct);
+    const msgs  = Math.round(totalOrders * pct * optinMult);
     const total = msgs * cost * segs;
 
     if(ordEl) ordEl.textContent = msgs > 0 ? msgs.toLocaleString('en-US') : '—';
