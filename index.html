@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Message Mapping</title>
+<title>Ria B&M Messaging Hub</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 :root {
@@ -78,6 +78,21 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .search-clear:hover{color:var(--text);background:var(--bg);}
 .search-count{font-size:11px;color:var(--hint);margin-left:10px;white-space:nowrap;}
 mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
+
+/* ONBOARDING MODAL */
+.onboard-overlay{position:fixed;inset:0;background:rgba(0,17,51,.55);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
+.onboard-modal{background:var(--card);border-radius:14px;max-width:520px;width:100%;max-height:86vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,17,51,.35);}
+.onboard-hdr{background:var(--navy);color:#fff;padding:22px 26px;border-radius:14px 14px 0 0;}
+.onboard-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange);margin-bottom:6px;}
+.onboard-title{font-size:19px;font-weight:700;}
+.onboard-body{padding:22px 26px;}
+.onboard-item{display:flex;gap:12px;margin-bottom:16px;}
+.onboard-item-icon{font-size:20px;flex-shrink:0;width:32px;text-align:center;}
+.onboard-item-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px;}
+.onboard-item-desc{font-size:12px;color:var(--muted);line-height:1.5;}
+.onboard-footer{padding:16px 26px 22px;display:flex;justify-content:flex-end;}
+.onboard-btn{background:var(--orange);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;}
+.onboard-btn:hover{background:var(--orange-dim);}
 
 /* PAGES */
 .page{display:none;padding:24px 32px 48px;}
@@ -275,22 +290,26 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
       <circle cx="124" cy="54" r="2.5" fill="#FF6100" opacity="0.5"/>
     </svg>
     <div class="sb-brand-eyebrow">Ria Money Transfer</div>
-    <div class="sb-brand-title">Message Mapping</div>
+    <div class="sb-brand-title">Ria B&amp;M Messaging Hub</div>
     <div class="sb-brand-sub">Comms Operations</div>
   </div>
   <nav class="sb-nav">
     <div class="sb-section">
       <div class="sb-section-label">Explore</div>
-      <div class="nav-tab active" onclick="switchTab('p0',this)">🔀 Message flow map</div>
-      <div class="nav-tab" onclick="switchTab('p1',this)">📨 Messages Library <span class="nbadge" id="b1"></span></div>
-      <div class="nav-tab" onclick="switchTab('p2',this)">🧭 Customer journeys</div>
+      <div class="nav-tab active" data-tab="p0" onclick="switchTab('p0',this)">🔀 Message flow map</div>
+      <div class="nav-tab" data-tab="p1" onclick="switchTab('p1',this)">📨 Messages Library <span class="nbadge" id="b1"></span></div>
+      <div class="nav-tab" data-tab="p2" onclick="switchTab('p2',this)">🧭 Customer journeys</div>
     </div>
     <div class="sb-section">
       <div class="sb-section-label">Cost Modeling</div>
-      <div class="nav-tab" onclick="switchTab('p3',this)">💰 SMS cost calculator</div>
-      <div class="nav-tab" onclick="switchTab('p5',this)">📶 Twilio SMS calculator</div>
-      <div class="nav-tab" onclick="switchTab('p4',this)">🌍 Global deployment cost</div>
-      <div class="nav-tab" onclick="switchTab('p6',this)">🌐 Global deployment Twilio</div>
+      <div class="nav-tab" data-tab="p3" onclick="switchTab('p3',this)">💰 SMS cost calculator</div>
+      <div class="nav-tab" data-tab="p5" onclick="switchTab('p5',this)">📶 Twilio SMS calculator</div>
+      <div class="nav-tab" data-tab="p4" onclick="switchTab('p4',this)">🌍 Global deployment cost</div>
+      <div class="nav-tab" data-tab="p6" onclick="switchTab('p6',this)">🌐 Global deployment Twilio</div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-section-label">Methodology</div>
+      <div class="nav-tab" data-tab="p7" onclick="switchTab('p7',this)">📐 How we calculate this</div>
     </div>
   </nav>
   <div class="sb-footer">
@@ -324,6 +343,49 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 <div class="page" id="p5"><div class="page-title">Twilio SMS calculator <span class="page-note">Same model, Twilio rate card — covers the 57 countries in the current Twilio contract</span></div><div id="p5-content"></div></div>
 <div class="page" id="p4"><div class="page-title">Global deployment cost <span class="page-note">Projected annual SMS cost of deploying US notification coverage to all active markets</span></div><div id="p4-content"></div></div>
 <div class="page" id="p6"><div class="page-title">Global deployment Twilio <span class="page-note">Same view, Twilio rate card — 46 markets with both a contracted Twilio rate and order-volume data</span></div><div id="p6-content"></div></div>
+<div class="page" id="p7"><div class="page-title">How we calculate this <span class="page-note">Methodology behind every number in this tool</span></div>
+<div style="max-width:820px;line-height:1.7;font-size:13px;color:var(--text);">
+
+<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:18px;">
+<div style="font-size:14px;font-weight:700;margin-bottom:10px;">Three cost concepts — kept strictly separate</div>
+<table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+<tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 10px;font-weight:700;color:var(--purple);width:180px;">Actual cost</td><td style="padding:8px 10px;">Real notification volume × local SMS rate, taken directly from Clickatell/Twilio billing files. What was actually spent.</td></tr>
+<tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 10px;font-weight:700;color:var(--purple);">Cost at full scale</td><td style="padding:8px 10px;">What a journey would cost in a country if it sent messages at the same rate the US does per order — used because no other market has its own behavioral data yet.</td></tr>
+<tr><td style="padding:8px 10px;font-weight:700;color:var(--purple);">Cost at an opt-in scenario</td><td style="padding:8px 10px;">A separate dial: what cost looks like if the share of customers opted in to SMS changes, independent of how often an opted-in customer gets messaged.</td></tr>
+</table>
+</div>
+
+<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:18px;">
+<div style="font-size:14px;font-weight:700;margin-bottom:10px;">The SMS Cost Calculator (Tabs 4 &amp; 5)</div>
+<p style="margin-bottom:10px;">Projected cost = <strong>selected country's order volume × US participation rate for that event × local SMS cost × billing units per message</strong>.</p>
+<p style="margin-bottom:10px;">Participation rate is measured from real US 2025 order and notification volumes (Power BI) — the share of orders that actually triggered each SMS event. Every other country borrows this rate as a proxy, since the US is the only market with its own behavioral history on file.</p>
+<p>The <strong>SMS opt-in scenario</strong> slider is a separate multiplier on top of this: baseline is today's real US opt-in rate (2,181,880 of 8,375,496 US customers, ≈26%). Moving the slider scales projected volume by the ratio of target opt-in to that baseline — assuming newly opted-in customers behave like already-opted-in ones on average.</p>
+</div>
+
+<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:18px;">
+<div style="font-size:14px;font-weight:700;margin-bottom:10px;">Global Deployment Cost (Tabs 6 &amp; 7)</div>
+<p>Same participation-rate proxy model, applied across all markets with order-volume data on file — 139 markets on Clickatell rates, 46 on Twilio (the subset of the 57 Twilio-contracted countries that also have order volume on record). Countries without order data are listed rather than estimated, so nothing here is a guess dressed up as a number.</p>
+</div>
+
+<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:18px;">
+<div style="font-size:14px;font-weight:700;margin-bottom:10px;">What "Live" means here</div>
+<p style="margin-bottom:10px;">Message Flow Map, Messages Library, and Customer Journeys only show messages marked <strong>Live = Yes</strong> in the source Google Sheet. That filter now happens server-side — the dashboard requests only live rows from the sheet, rather than downloading everything and hiding the rest client-side.</p>
+<p>Customer Journeys uses a separate hardcoded dataset (not sheet-fed), so its messages are cross-matched against the live sheet by title to decide what to show.</p>
+</div>
+
+<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;">
+<div style="font-size:14px;font-weight:700;margin-bottom:10px;">Data sources</div>
+<ul style="padding-left:18px;">
+<li style="margin-bottom:6px;">Order volumes — Power BI, all B&amp;M markets, 2025</li>
+<li style="margin-bottom:6px;">Message templates — Google Sheet mirroring the Ria transactional message library (B&amp;M + Digital tabs)</li>
+<li style="margin-bottom:6px;">SMS costs (Clickatell) — current contracted telco rates</li>
+<li style="margin-bottom:6px;">SMS costs (Twilio) — Order Form 00142240.0, Exhibit A rate schedule, effective Aug 1, 2025</li>
+<li>Billing units — most Ria SMS messages run ~200 characters, spanning 2 telco billing units of 160 characters each; editable per calculation.</li>
+</ul>
+</div>
+
+</div>
+</div>
 
 </div><!-- /main-content -->
 </div><!-- /app-shell -->
@@ -387,8 +449,56 @@ function setAudience(val){
   activeAudience = val;
   document.querySelectorAll('.aud-pill').forEach(p=>p.classList.toggle('active', p.dataset.aud===val));
   renderPage(activeTab);
+  updateURLState();
 }
 
+
+/* ── URL DEEP LINKS ── */
+function updateURLState(){
+  const params = new URLSearchParams();
+  if(activeTab !== 'p0') params.set('tab', activeTab);
+  if(activeIntent !== 'all') params.set('intent', activeIntent);
+  if(activeAudience !== 'all') params.set('aud', activeAudience);
+  if(activeTab === 'p0' && window._flowState){
+    if(window._flowState.event !== 'all') params.set('event', window._flowState.event);
+    if(window._flowState.country !== 'all') params.set('country', window._flowState.country);
+  }
+  const qs = params.toString();
+  const newUrl = window.location.pathname + (qs ? '?'+qs : '');
+  history.replaceState(null, '', newUrl);
+}
+
+function applyURLState(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.has('tab')) activeTab = params.get('tab');
+  if(params.has('intent')) activeIntent = params.get('intent');
+  if(params.has('aud')) activeAudience = params.get('aud');
+  if(params.has('event') || params.has('country')){
+    window._flowState = window._flowState || {event:'all', country:'United States'};
+    if(params.has('event')) window._flowState.event = params.get('event');
+    if(params.has('country')) window._flowState.country = params.get('country');
+  }
+}
+
+function activateNavTabFor(id){
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  const match = document.querySelector('.nav-tab[data-tab="'+id+'"]');
+  if(match) match.classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const page = document.getElementById(id);
+  if(page) page.classList.add('active');
+  const intentBar = document.getElementById('intent-bar');
+  const audienceBar = document.getElementById('audience-bar');
+  const showBars = ['p0','p1'].indexOf(id) !== -1;
+  if(intentBar) intentBar.style.display = showBars ? 'flex' : 'none';
+  if(audienceBar) audienceBar.style.display = showBars ? 'flex' : 'none';
+}
+
+function setFlowFilter(key, val){
+  window._flowState[key] = val;
+  renderFlow();
+  updateURLState();
+}
 
 function tag(text,cls){
   if(!text||!text.trim()||text==='nan') return '';
@@ -433,6 +543,7 @@ function setIntent(key, el){
   document.querySelectorAll('.intent-pill').forEach(p=>p.classList.remove('active'));
   el.classList.add('active');
   renderPage(activeTab);
+  updateURLState();
 }
 
 /* ── TAB SWITCHING ── */
@@ -449,6 +560,7 @@ function switchTab(id, el){
   if(intentBar) intentBar.style.display = showBars ? 'flex' : 'none';
   if(audienceBar) audienceBar.style.display = showBars ? 'flex' : 'none';
   renderPage(id);
+  updateURLState();
 }
 
 function renderPage(id){
@@ -1089,7 +1201,7 @@ function renderFlow(){
   // Event dropdown
   ctrlHtml += '<div style="display:flex;align-items:center;gap:6px;">'
     + '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Trigger</span>'
-    + '<select id="flow-event-sel" onchange="window._flowState.event=this.value;renderFlow();" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:12px;color:var(--text);cursor:pointer;max-width:280px;">'
+    + '<select id="flow-event-sel" onchange="setFlowFilter(\'event\',this.value)" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:12px;color:var(--text);cursor:pointer;max-width:280px;">'
     + '<option value="all">All triggers</option>';
   events.forEach(function(ev){
     ctrlHtml += '<option value="'+ev.replace(/"/g,'&quot;')+'"'+(window._flowState.event===ev?' selected':'')+'>'+ev+'</option>';
@@ -1099,7 +1211,7 @@ function renderFlow(){
   // Country dropdown
   ctrlHtml += '<div style="display:flex;align-items:center;gap:6px;">'
     + '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Country</span>'
-    + '<select id="flow-country-sel" onchange="window._flowState.country=this.value;renderFlow();" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:12px;color:var(--text);cursor:pointer;">'
+    + '<select id="flow-country-sel" onchange="setFlowFilter(\'country\',this.value)" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:12px;color:var(--text);cursor:pointer;">'
     + '<option value="all">All countries</option>';
   countries.forEach(function(c){
     ctrlHtml += '<option value="'+c+'"'+(window._flowState.country===c?' selected':'')+'>'+c+'</option>';
@@ -1943,12 +2055,81 @@ async function loadSheetData() {
   }
 }
 
+/* ── ONBOARDING ── */
+const APP_VERSION = '4.2.0.0';
+const ONBOARD_KEY = 'riaMessagingHub_lastSeenVersion';
+
+function renderOnboardingModal(mode){
+  const overlay = document.createElement('div');
+  overlay.className = 'onboard-overlay';
+  overlay.onclick = function(e){ if(e.target===overlay) dismissOnboarding(); };
+
+  let items;
+  let eyebrow, title;
+  if(mode === 'first'){
+    eyebrow = 'Welcome';
+    title = 'What this tool does';
+    items = [
+      {icon:'🔀', t:'Explore', d:'Message Flow Map, Messages Library, and Customer Journeys — what gets sent, to whom, and through which channel.'},
+      {icon:'💰', t:'Cost Modeling', d:'SMS cost calculators and global deployment cost projections, on both Clickatell and Twilio rates.'},
+      {icon:'📐', t:'Methodology', d:'A plain-language breakdown of how every number here is actually calculated.'},
+      {icon:'✓', t:'Live data', d:'Flow Map, Library, and Journeys only ever show messages marked Live in the source sheet.'},
+    ];
+  } else {
+    eyebrow = "What's new";
+    title = 'This tool got a redesign';
+    items = [
+      {icon:'🗂️', t:'Sidebar navigation', d:'Tabs are now grouped into Explore, Cost Modeling, and Methodology in the left sidebar, instead of one flat row.'},
+      {icon:'🎨', t:'Ria brand identity', d:"Navy and orange, Ria's actual palette, replacing the old generic purple theme."},
+      {icon:'📐', t:'New: Methodology tab', d:'A dedicated breakdown of how the cost figures and participation-rate model actually work.'},
+      {icon:'🔗', t:'Shareable links', d:'Your current tab and filters are now reflected in the URL — copy the link to send someone the exact view you\'re looking at.'},
+    ];
+  }
+
+  const itemsHtml = items.map(function(it){
+    return '<div class="onboard-item"><div class="onboard-item-icon">'+it.icon+'</div>'
+      + '<div><div class="onboard-item-title">'+it.t+'</div><div class="onboard-item-desc">'+it.d+'</div></div></div>';
+  }).join('');
+
+  overlay.innerHTML = '<div class="onboard-modal">'
+    + '<div class="onboard-hdr"><div class="onboard-eyebrow">'+eyebrow+'</div><div class="onboard-title">'+title+'</div></div>'
+    + '<div class="onboard-body">'+itemsHtml+'</div>'
+    + '<div class="onboard-footer"><button class="onboard-btn" onclick="dismissOnboarding()">Got it</button></div>'
+    + '</div>';
+
+  document.body.appendChild(overlay);
+}
+
+function dismissOnboarding(){
+  const overlay = document.querySelector('.onboard-overlay');
+  if(overlay) overlay.remove();
+}
+
+function checkOnboarding(){
+  let stored = null;
+  try { stored = localStorage.getItem(ONBOARD_KEY); } catch(e){ stored = null; }
+  const currentMajor = parseInt(APP_VERSION.split('.')[0], 10);
+  let mode = null;
+  if(stored === null){
+    mode = 'first';
+  } else {
+    const storedMajor = parseInt((stored.split('.')[0])||'0', 10);
+    if(storedMajor < currentMajor) mode = 'whatsnew';
+  }
+  if(mode) renderOnboardingModal(mode);
+  try { localStorage.setItem(ONBOARD_KEY, APP_VERSION); } catch(e){}
+}
+
 /* ── INIT ── */
+applyURLState();
+if(!document.getElementById(activeTab)) activeTab = 'p0';
 buildIntentBar();
-renderFlow();
+activateNavTabFor(activeTab);
+renderPage(activeTab);
 
 // Load sheet data after initial render
 loadSheetData();
+checkOnboarding();
 </script>
 </body>
 </html>
