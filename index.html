@@ -147,7 +147,10 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 .ch-col-hdr.wa{background:#EBF7F2;} .ch-col-hdr.wa .ch-col-name{color:var(--wa);}
 .ch-col-hdr.em{background:#FDF5E8;} .ch-col-hdr.em .ch-col-name{color:var(--em);}
 .msg-list{padding:10px;display:flex;flex-direction:column;gap:7px;}
-.msg-item{padding:8px 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);}
+.msg-item{padding:8px 10px;border-radius:7px;border:1px solid var(--border);background:var(--card);position:relative;}
+.msg-share-btn{position:absolute;top:6px;right:6px;background:none;border:none;cursor:pointer;font-size:12px;padding:3px 5px;border-radius:5px;color:var(--hint);opacity:.6;transition:opacity .15s,background .15s;line-height:1;}
+.msg-share-btn:hover{opacity:1;background:var(--purple-bg);color:var(--purple);}
+.msg-item.jump-highlight{outline:2px solid var(--orange);}
 .msg-item.is-draft{opacity:.48;}
 .msg-item.live-card{cursor:pointer;transition:border-color .15s;}
 .msg-item.live-card:hover{border-color:var(--border-mid);}
@@ -1372,6 +1375,62 @@ function renderFlow(){
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 let expandedCard = null;
+
+/* ── MESSAGE-LEVEL DEEP LINKS ── */
+// The sheet's MessageID column is currently blank on every row, so we build a
+// deterministic key from the fields that actually distinguish one message from
+// another. A small number of rows are genuine exact duplicates in the sheet —
+// linking to either one shows the same content, so this is fine in practice.
+function msgShareKey(m){
+  var parts = [m.title, (m.r1||m.region||''), m.channel, m.event, m.sendTo, m.agent, m.entry];
+  var raw = parts.map(function(p){ return (p||'').toString().trim().toLowerCase(); }).join('||');
+  var hash = 0;
+  for(var i=0;i<raw.length;i++){ hash = ((hash<<5)-hash+raw.charCodeAt(i))|0; }
+  return (hash>>>0).toString(36);
+}
+
+function shareMessage(ev, key){
+  ev.stopPropagation();
+  const params = new URLSearchParams();
+  params.set('tab','p1');
+  params.set('msg', key);
+  const url = window.location.origin + window.location.pathname + '?' + params.toString();
+  const btn = ev.currentTarget;
+  function showCopied(){
+    if(!btn) return;
+    const old = btn.textContent;
+    btn.textContent = '✓';
+    setTimeout(function(){ btn.textContent = old; }, 1200);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(showCopied).catch(function(){ window.prompt('Copy this link:', url); });
+  } else {
+    window.prompt('Copy this link:', url);
+  }
+}
+
+function jumpToSharedMessage(){
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get('msg');
+  if(!key) return;
+  if(activeTab !== 'p1'){
+    activeTab = 'p1';
+    activateNavTabFor('p1');
+  }
+  activeIntent = 'all';
+  renderPage('p1');
+  requestAnimationFrame(function(){
+    const target = document.querySelector('.msg-item[data-msgkey="'+key+'"]');
+    if(!target) return;
+    document.querySelectorAll('.msg-item.expanded').forEach(function(el){ el.classList.remove('expanded'); });
+    target.classList.add('expanded');
+    expandedCard = target;
+    target.scrollIntoView({behavior:'smooth', block:'center'});
+    target.classList.add('jump-highlight');
+    setTimeout(function(){ target.classList.remove('jump-highlight'); }, 2000);
+  });
+}
+
 function toggleMsg(el){
   if(expandedCard && expandedCard !== el) expandedCard.classList.remove('expanded');
   el.classList.toggle('expanded');
@@ -1473,7 +1532,8 @@ function renderP1(){
             }
 
             totalMatched++;
-            html += '<div class="msg-item live-card' + (forceExpand?' expanded':'') + '" onclick="toggleMsg(this)">';
+            html += '<div class="msg-item live-card' + (forceExpand?' expanded':'') + '" data-msgkey="' + msgShareKey(m) + '" onclick="toggleMsg(this)">';
+            html += '<button class="msg-share-btn" title="Copy link to this message" onclick="shareMessage(event, \'' + msgShareKey(m) + '\')">🔗</button>';
             html += '<div class="msg-status"><span class="dot-live"></span><span style="color:var(--live);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.08em">Live</span>';
             if(m.audience==='digital') html += '<span class="audience-badge audience-digital" style="margin-left:8px;">Digital</span>';
             html += '</div>';
@@ -2053,6 +2113,8 @@ async function loadSheetData() {
     buildIntentBar();
     renderPage(activeTab);
   }
+
+  jumpToSharedMessage();
 }
 
 /* ── ONBOARDING ── */
