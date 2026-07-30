@@ -1422,12 +1422,18 @@ function jumpToSharedMessage(){
   requestAnimationFrame(function(){
     const target = document.querySelector('.msg-item[data-msgkey="'+key+'"]');
     if(!target) return;
+    // The card lives inside a collapsed "trigger event" accordion — open that
+    // ancestor first, or scrollIntoView has nothing visible to scroll to.
+    const eventBlock = target.closest('.event-block');
+    if(eventBlock) eventBlock.classList.add('open');
     document.querySelectorAll('.msg-item.expanded').forEach(function(el){ el.classList.remove('expanded'); });
     target.classList.add('expanded');
     expandedCard = target;
-    target.scrollIntoView({behavior:'smooth', block:'center'});
-    target.classList.add('jump-highlight');
-    setTimeout(function(){ target.classList.remove('jump-highlight'); }, 2000);
+    requestAnimationFrame(function(){
+      target.scrollIntoView({behavior:'smooth', block:'center'});
+      target.classList.add('jump-highlight');
+      setTimeout(function(){ target.classList.remove('jump-highlight'); }, 2000);
+    });
   });
 }
 
