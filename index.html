@@ -150,10 +150,17 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 
 /* ── PAGE 0: FLOW MAP ── */
 .flow-outer{overflow-x:auto;padding-bottom:8px;}
-.flow-col-labels{display:flex;min-width:900px;margin-bottom:6px;}
+.flow-col-labels{display:flex;width:100%;min-width:640px;margin-bottom:6px;}
 .flow-col-lbl{flex-shrink:0;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--hint);padding-bottom:4px;border-bottom:1px solid var(--border);}
-.flow-canvas{position:relative;min-width:900px;contain:layout paint;}
-.flow-cols{display:flex;align-items:flex-start;}
+.flow-canvas{position:relative;width:100%;min-width:640px;contain:layout paint;}
+.flow-cols{display:flex;align-items:flex-start;width:100%;}
+.flow-col{flex-shrink:0;display:flex;flex-direction:column;align-items:center;}
+.flow-col-0{flex:0 0 150px;}
+.flow-col-2{flex:1.1 1 0;min-width:130px;}
+.flow-col-4{flex:1 1 0;min-width:110px;}
+.flow-col-6{flex:0.7 1 0;min-width:90px;}
+.flow-col-8{flex:1.6 1 0;min-width:170px;}
+.flow-spacer{flex:0 0 28px;}
 .lib-box{border:1.5px solid var(--border-mid);border-radius:var(--radius);padding:14px 12px;text-align:center;background:#FAFAF8;width:128px;}
 .lib-box-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;}
 .lib-box-sub{font-size:11px;color:var(--muted);}
@@ -1119,15 +1126,17 @@ function renderFlow(){
   }
 
   // ── Build map ─────────────────────────────────────────────────────────────
-  const evNodes={}, regNodes={}, chNodes={}, epEls=[];
+  const evNodes={}, regNodes={}, chNodes={};
   const mapEvents  = [...new Set(filteredData.map(d=>d.event))];
   const regions    = [...new Set(filteredData.map(d=>d.r1).filter(Boolean))].sort();
   const channels   = ['SMS','WhatsApp','Email','Push'].filter(ch=>filteredData.some(d=>d.channel===ch));
 
-  const COL_W = [128,28,200,28,160,28,110,28,200];
+  // Columns are now sized via CSS flex-basis (see .flow-col-N / .flow-spacer) so the
+  // diagram fills the available width instead of sitting pinned at a fixed pixel size.
+  const COL_CLASSES = ['flow-col-0','flow-spacer','flow-col-2','flow-spacer','flow-col-4','flow-spacer','flow-col-6','flow-spacer','flow-col-8'];
   const COL_N = ['Message library','','Trigger event','','Region','','Channel','','Who gets it'];
   const ROW_G = 9;
-  const labelsHTML = COL_W.map((w,i)=>'<div class="flow-col-lbl" style="width:'+w+'px">'+COL_N[i]+'</div>').join('');
+  const labelsHTML = COL_N.map((n,i)=>'<div class="flow-col-lbl '+COL_CLASSES[i]+'">'+n+'</div>').join('');
 
   const wrap = document.createElement('div');
   const isFullView = window._flowState.event==='all' && window._flowState.country==='all';
@@ -1136,7 +1145,7 @@ function renderFlow(){
     + (window._flowState.event!=='all'?' for <strong>'+window._flowState.event+'</strong>':'')
     + (window._flowState.country!=='all'?' in <strong>'+window._flowState.country+'</strong>':'')
     + '. Blue = SMS · Green = WhatsApp · Amber = Email · Purple = Push'
-    + (isFullView ? ' · <span style="color:var(--muted);">Showing all 1,138 routes at once — this view is heavier to load and scroll. Pick a country or trigger above to speed it up.</span>' : '')
+    + (isFullView ? ' · <span style="color:var(--muted);">Showing all '+allData.length.toLocaleString('en-US')+' routes at once — rendered progressively as you scroll. Pick a country or trigger above to narrow it down.</span>' : '')
     + '</div>'
     + '<div class="flow-outer"><div class="flow-col-labels">'+labelsHTML+'</div>'
     + '<div class="flow-canvas" id="fcanvas"><svg class="flow-svg" id="fsvg" width="100%" height="4"></svg>'
@@ -1149,8 +1158,8 @@ function renderFlow(){
   var cs=wrap.querySelector('#flow-country-sel'); if(cs) cs.value=window._flowState.country;
 
   const fcols = wrap.querySelector('#fcols');
-  function col(w,pt){var d=document.createElement('div');d.style.cssText='display:flex;flex-direction:column;align-items:center;width:'+w+'px;flex-shrink:0;'+(pt?'padding-top:'+pt+'px;':'');return d;}
-  function spacer(w){var d=document.createElement('div');d.style.cssText='width:'+w+'px;flex-shrink:0;';fcols.appendChild(d);}
+  function col(cls,pt){var d=document.createElement('div');d.className='flow-col '+cls;if(pt)d.style.paddingTop=pt+'px';return d;}
+  function spacer(){var d=document.createElement('div');d.className='flow-spacer';fcols.appendChild(d);}
   function node(t,cls){var d=document.createElement('div');d.className='fnode '+cls;d.textContent=t;return d;}
   function ep(label,agent,ch){
     var d=document.createElement('div');d.className='fep fep-'+chCls(ch);
@@ -1160,59 +1169,90 @@ function renderFlow(){
   }
 
   // Col 0 — library box
-  const c0=col(COL_W[0]); c0.style.justifyContent='center'; c0.style.minHeight='200px';
+  const c0=col('flow-col-0'); c0.style.justifyContent='center'; c0.style.minHeight='200px';
   const lb=document.createElement('div'); lb.className='lib-box';
   lb.innerHTML='<div class="lib-box-title">Message library</div><div class="lib-box-sub">'+filteredData.length+' live routes</div>';
-  c0.appendChild(lb); fcols.appendChild(c0); spacer(COL_W[1]);
+  c0.appendChild(lb); fcols.appendChild(c0); spacer();
 
   // Col 1 — events
-  const c2=col(COL_W[2],8); c2.style.gap=ROW_G+'px';
+  const c2=col('flow-col-2',8); c2.style.gap=ROW_G+'px';
   mapEvents.forEach(function(ev){var n=node(ev.length>32?ev.substring(0,30)+'…':ev,'fnode-ev');c2.appendChild(n);evNodes[ev]=n;});
-  fcols.appendChild(c2); spacer(COL_W[3]);
+  fcols.appendChild(c2); spacer();
 
   // Col 2 — regions
-  const c4=col(COL_W[4],8); c4.style.gap=ROW_G+'px';
+  const c4=col('flow-col-4',8); c4.style.gap=ROW_G+'px';
   regions.forEach(function(r){var n=node(r,'fnode-reg');c4.appendChild(n);regNodes[r]=n;});
-  fcols.appendChild(c4); spacer(COL_W[5]);
+  fcols.appendChild(c4); spacer();
 
   // Col 3 — channels
-  const c6=col(COL_W[6],8); c6.style.gap=ROW_G+'px';
+  const c6=col('flow-col-6',8); c6.style.gap=ROW_G+'px';
   channels.forEach(function(ch){
     var cls=ch==='SMS'?'fnode-sms':ch==='WhatsApp'?'fnode-wa':ch==='Push'?'fnode-push':'fnode-em';
     var n=node(ch,cls); c6.appendChild(n); chNodes[ch]=n;
   });
-  fcols.appendChild(c6); spacer(COL_W[7]);
+  fcols.appendChild(c6); spacer();
 
-  // Col 4 — endpoints
-  const c8=col(COL_W[8],8); c8.style.gap=ROW_G+'px';
-  filteredData.forEach(function(d){
-    var agent=(d.agent&&d.agent!=='nan')?d.agent:(d.entry&&d.entry!=='nan'?d.entry:'');
-    var e=ep(d.r1+(d.lang?' · '+d.lang:''), agent, d.channel);
-    c8.appendChild(e); epEls.push(e);
-  });
+  // Col 4 — endpoints (virtualized: rendered in batches as the user scrolls,
+  // instead of building all N nodes + N curve-sets upfront)
+  const c8=col('flow-col-8',8); c8.style.gap=ROW_G+'px';
   fcols.appendChild(c8);
 
-  // Draw curves
-  requestAnimationFrame(function(){requestAnimationFrame(function(){
-    var canvas=wrap.querySelector('#fcanvas');
-    var svg=wrap.querySelector('#fsvg');
-    var cr=canvas.getBoundingClientRect();
-    svg.setAttribute('height',canvas.offsetHeight+20);
+  const svg = wrap.querySelector('#fsvg');
+  const canvas = wrap.querySelector('#fcanvas');
+  const epEls = [];
+  const BATCH = 80;
+  let renderedCount = 0;
+  let sentinel = null;
+  let observer = null;
+
+  function drawCurvesFor(startIdx, endIdx){
+    var cr = canvas.getBoundingClientRect();
     function mid(el){var r=el.getBoundingClientRect();return{x:r.left-cr.left,y:r.top-cr.top+r.height/2,rx:r.right-cr.left};}
-    var libM=mid(lb);
-    var paths='';
-    filteredData.forEach(function(d,i){
-      if(!evNodes[d.event]||!regNodes[d.r1]||!chNodes[d.channel]||!epEls[i]) return;
-      var color=CH_COLOR[d.channel]||'#888';
+    var libM = mid(lb);
+    var paths = '';
+    for(var i=startIdx;i<endIdx;i++){
+      var d = filteredData[i];
+      if(!evNodes[d.event]||!regNodes[d.r1]||!chNodes[d.channel]||!epEls[i]) continue;
+      var color = CH_COLOR[d.channel]||'#888';
       var pE=mid(evNodes[d.event]),pR=mid(regNodes[d.r1]),pC=mid(chNodes[d.channel]),pEp=mid(epEls[i]);
-      function curve(x1,y1,x2,y2){var cx=(x1+x2)/2;return '<path d="M'+x1+','+y1+' C'+cx+','+y1+' '+cx+','+y2+' '+x2+','+y2+'" fill="none" stroke="'+color+'" stroke-width="1.2" opacity="0.3" stroke-linecap="round"/>';}
-      paths+=curve(libM.rx,libM.y,pE.x,pE.y);
-      paths+=curve(pE.rx,pE.y,pR.x,pR.y);
-      paths+=curve(pR.rx,pR.y,pC.x,pC.y);
-      paths+=curve(pC.rx,pC.y,pEp.x,pEp.y);
-    });
-    svg.innerHTML=paths;
-  });});
+      var curve=function(x1,y1,x2,y2){var cx=(x1+x2)/2;return '<path d="M'+x1+','+y1+' C'+cx+','+y1+' '+cx+','+y2+' '+x2+','+y2+'" fill="none" stroke="'+color+'" stroke-width="1.2" opacity="0.3" stroke-linecap="round"/>';};
+      paths += curve(libM.rx,libM.y,pE.x,pE.y);
+      paths += curve(pE.rx,pE.y,pR.x,pR.y);
+      paths += curve(pR.rx,pR.y,pC.x,pC.y);
+      paths += curve(pC.rx,pC.y,pEp.x,pEp.y);
+    }
+    svg.insertAdjacentHTML('beforeend', paths);
+    svg.setAttribute('height', canvas.offsetHeight+20);
+  }
+
+  function renderNextBatch(){
+    if(sentinel){ if(observer) observer.unobserve(sentinel); sentinel.remove(); sentinel=null; }
+    var start = renderedCount;
+    var end = Math.min(filteredData.length, start+BATCH);
+    for(var i=start;i<end;i++){
+      var d = filteredData[i];
+      var agent=(d.agent&&d.agent!=='nan')?d.agent:(d.entry&&d.entry!=='nan'?d.entry:'');
+      var e = ep(d.r1+(d.lang?' · '+d.lang:''), agent, d.channel);
+      c8.appendChild(e);
+      epEls[i]=e;
+    }
+    renderedCount = end;
+    requestAnimationFrame(function(){requestAnimationFrame(function(){
+      drawCurvesFor(start, end);
+      if(renderedCount < filteredData.length){
+        sentinel = document.createElement('div');
+        sentinel.style.height='1px';
+        c8.appendChild(sentinel);
+        observer.observe(sentinel);
+      }
+    })});
+  }
+
+  observer = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){ if(entry.isIntersecting) renderNextBatch(); });
+  }, {root:null, rootMargin:'500px'});
+
+  renderNextBatch();
 }
 
 
