@@ -5,40 +5,68 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Message Mapping</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 :root {
-  --sms:#0C447C;--sms-bg:#E6F1FB;--wa:#085041;--wa-bg:#E1F5EE;--em:#633806;--em-bg:#FAEEDA;
-  --live:#3B6D11;--live-bg:#EAF3DE;--draft:#888780;--draft-bg:#F1EFE8;
-  --purple:#3C3489;--purple-bg:#EEEDFE;--bg:#F8F7F4;--card:#fff;
-  --border:#E5E3DD;--border-mid:#D3D1C7;--text:#2C2C2A;--muted:#888780;--hint:#B4B2A9;--radius:10px;
+  /* Ria brand */
+  --navy:#001133;--navy-2:#0A2050;--navy-3:#132A5C;
+  --orange:#FF6100;--orange-bg:#FFF0E6;--orange-dim:#E5570A;
+  --salmon:#FAD2BE;--soft-blue:#CDE1E1;
+
+  /* Channel + status (retuned to sit with the new palette, same hues so the legend still reads the same) */
+  --sms:#1B5FA0;--sms-bg:#E9F1FA;--wa:#0F7A5C;--wa-bg:#E6F6F0;--em:#9A6512;--em-bg:#FCF1DE;
+  --live:#1E7A3C;--live-bg:#E9F6EC;--draft:#7D7F86;--draft-bg:#EFEFEC;
+
+  /* Primary accent now maps to Ria Orange instead of generic purple — most of the UI
+     already threads its "accent" color through --purple/--purple-bg, so retheming here
+     recolors calculators, active states, and badges without touching each usage. */
+  --purple:#FF6100;--purple-bg:#FFF0E6;
+
+  --bg:#F5F5F3;--card:#fff;
+  --border:#E6E5E1;--border-mid:#D4D3CD;--text:#181B24;--muted:#6E7178;--hint:#A6A8AE;--radius:10px;
+  --sidebar-w:250px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 
-/* HEADER */
-.hdr{background:#1E1D1B;padding:18px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
-.hdr-brand{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#555450;margin-bottom:3px;}
-.hdr-title{font-size:19px;font-weight:600;color:#fff;}
-.hdr-sub{font-size:12px;color:#555450;margin-top:2px;}
-.hdr-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;}
-.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:#888780;}
+/* APP SHELL */
+.app-shell{display:flex;min-height:100vh;align-items:flex-start;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--navy);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.sb-brand{padding:22px 20px 18px;border-bottom:1px solid rgba(255,255,255,.1);position:relative;overflow:hidden;}
+.sb-brand-eyebrow{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:5px;position:relative;z-index:1;}
+.sb-brand-title{font-size:17px;font-weight:700;color:#fff;line-height:1.25;position:relative;z-index:1;}
+.sb-brand-sub{font-size:11px;color:rgba(255,255,255,.45);margin-top:3px;position:relative;z-index:1;}
+.sb-flowline{position:absolute;right:-10px;top:-6px;width:150px;height:90px;opacity:.5;pointer-events:none;}
+
+.sb-nav{flex:1;padding:16px 10px;overflow-y:auto;}
+.sb-section{margin-bottom:20px;}
+.sb-section-label{font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.38);padding:0 10px 8px;display:flex;align-items:center;gap:7px;}
+.sb-section-label::before{content:'';width:9px;height:2px;background:var(--orange);display:inline-block;border-radius:1px;}
+
+.nav-tab{padding:9px 12px;font-size:13px;font-weight:500;color:rgba(255,255,255,.7);cursor:pointer;border-radius:8px;margin-bottom:2px;white-space:nowrap;display:flex;align-items:center;gap:9px;user-select:none;border-left:3px solid transparent;transition:background .15s,color .15s;}
+.nav-tab:hover{background:rgba(255,255,255,.07);color:#fff;}
+.nav-tab.active{background:rgba(255,97,0,.18);color:#fff;border-left-color:var(--orange);font-weight:600;}
+.nbadge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.7);margin-left:auto;}
+.nav-tab.active .nbadge{background:var(--orange);color:#fff;}
+
+.sb-footer{padding:14px 16px 16px;border-top:1px solid rgba(255,255,255,.1);}
+.sb-legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin-bottom:10px;}
+.leg{display:flex;align-items:center;gap:5px;font-size:10px;color:rgba(255,255,255,.55);}
 .leg-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+#sheet-indicator{font-size:10px;color:rgba(255,255,255,.5);font-weight:600;white-space:nowrap;}
 
-/* NAV */
-.nav{background:var(--card);border-bottom:1px solid var(--border);display:flex;padding:0 32px;overflow-x:auto;}
-.nav-tab{padding:13px 20px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:color .15s;display:flex;align-items:center;gap:7px;user-select:none;}
-.nav-tab:hover{color:var(--text);}
-.nav-tab.active{color:var(--purple);border-bottom-color:var(--purple);}
-.nbadge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:#F1EFE8;color:var(--muted);}
-.nav-tab.active .nbadge{background:var(--purple-bg);color:var(--purple);}
+/* MAIN CONTENT */
+.main-content{flex:1;min-width:0;}
 
 /* INTENT SELECTOR BAR */
-.intent-bar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 32px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.intent-bar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 32px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:5;}
 .intent-pill{padding:5px 12px;border-radius:20px;border:1px solid var(--border-mid);background:var(--card);font-size:11px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:5px;}
 .intent-pill:hover{border-color:var(--muted);color:var(--text);}
 .intent-pill.active{border-color:var(--purple);background:var(--purple-bg);color:var(--purple);}
 .intent-pill.empty{opacity:.55;}
 .ip-count{font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;background:rgba(0,0,0,.06);}
-.intent-pill.active .ip-count{background:rgba(60,52,137,.15);}
+.intent-pill.active .ip-count{background:rgba(255,97,0,.15);}
 
 /* FILTER BAR */
 .search-wrap{position:relative;display:flex;align-items:center;max-width:340px;}
@@ -50,11 +78,6 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .search-clear:hover{color:var(--text);background:var(--bg);}
 .search-count{font-size:11px;color:var(--hint);margin-left:10px;white-space:nowrap;}
 mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
-
-
-
-
-
 
 /* PAGES */
 .page{display:none;padding:24px 32px 48px;}
@@ -198,10 +221,21 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 .calc-result-cell.calc-result-msgs{color:var(--sms);}
 .calc-notes-cell{font-size:10px;color:var(--muted);line-height:1.4;}
 
+@media(max-width:880px){
+  .app-shell{flex-direction:column;}
+  .sidebar{width:100%;height:auto;flex-direction:row;position:relative;overflow-x:auto;align-items:center;}
+  .sb-brand{border-bottom:none;border-right:1px solid rgba(255,255,255,.1);flex-shrink:0;padding:14px 16px;min-width:170px;}
+  .sb-flowline{display:none;}
+  .sb-nav{display:flex;flex-direction:row;align-items:center;gap:6px;padding:8px 12px;overflow-x:auto;}
+  .sb-section{display:flex;align-items:center;gap:6px;margin-bottom:0;}
+  .sb-section-label{display:none;}
+  .nav-tab{margin-bottom:0;border-left:none;border-bottom:3px solid transparent;}
+  .nav-tab.active{border-left:none;border-bottom-color:var(--orange);}
+  .sb-footer{display:none;}
+}
 @media(max-width:640px){
   .page{padding:14px 16px;}
-  .nav,.intent-bar{padding-left:16px;padding-right:16px;}
-  .hdr{padding:14px 16px;}
+  .intent-bar{padding-left:16px;padding-right:16px;}
   .channels-wrap{grid-template-columns:1fr;}
   .ch-col{border-right:none;border-bottom:1px solid var(--border);}
   .attn-grid{grid-template-columns:1fr;}
@@ -224,32 +258,47 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 </head>
 <body>
 
-<div class="hdr">
-  <div>
-    <div class="hdr-brand">Ria Money Transfer · Comms Operations</div>
-    <div class="hdr-title">Message Mapping</div>
-    <div class="hdr-sub">All intents — message flow &amp; template coverage</div>
+<div class="app-shell">
+<aside class="sidebar">
+  <div class="sb-brand">
+    <svg class="sb-flowline" viewBox="0 0 150 90" xmlns="http://www.w3.org/2000/svg">
+      <path d="M-5,72 C28,72 30,28 62,28 C94,28 92,54 124,54 C138,54 142,38 152,32" fill="none" stroke="#FF6100" stroke-width="2" opacity="0.55"/>
+      <circle cx="152" cy="32" r="3" fill="#FF6100" opacity="0.85"/>
+      <circle cx="62" cy="28" r="2.5" fill="#FF6100" opacity="0.5"/>
+      <circle cx="124" cy="54" r="2.5" fill="#FF6100" opacity="0.5"/>
+    </svg>
+    <div class="sb-brand-eyebrow">Ria Money Transfer</div>
+    <div class="sb-brand-title">Message Mapping</div>
+    <div class="sb-brand-sub">Comms Operations</div>
   </div>
-  <div class="hdr-legend">
-    <div class="leg"><div class="leg-dot" style="background:var(--live)"></div>Live</div>
-    <div class="leg"><div class="leg-dot" style="background:var(--hint)"></div>Draft</div>
-    <div class="leg"><div class="leg-dot" style="background:#185FA5"></div>SMS</div>
-    <div class="leg"><div class="leg-dot" style="background:#0F6E56"></div>WhatsApp</div>
-    <div class="leg"><div class="leg-dot" style="background:#854F0B"></div>Email</div>
+  <nav class="sb-nav">
+    <div class="sb-section">
+      <div class="sb-section-label">Explore</div>
+      <div class="nav-tab active" onclick="switchTab('p0',this)">🔀 Message flow map</div>
+      <div class="nav-tab" onclick="switchTab('p1',this)">📨 Messages Library <span class="nbadge" id="b1"></span></div>
+      <div class="nav-tab" onclick="switchTab('p2',this)">🧭 Customer journeys</div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-section-label">Cost Modeling</div>
+      <div class="nav-tab" onclick="switchTab('p3',this)">💰 SMS cost calculator</div>
+      <div class="nav-tab" onclick="switchTab('p5',this)">📶 Twilio SMS calculator</div>
+      <div class="nav-tab" onclick="switchTab('p4',this)">🌍 Global deployment cost</div>
+      <div class="nav-tab" onclick="switchTab('p6',this)">🌐 Global deployment Twilio</div>
+    </div>
+  </nav>
+  <div class="sb-footer">
+    <div class="sb-legend">
+      <div class="leg"><div class="leg-dot" style="background:var(--live)"></div>Live</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--hint)"></div>Draft</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--sms)"></div>SMS</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--wa)"></div>WhatsApp</div>
+      <div class="leg"><div class="leg-dot" style="background:var(--em)"></div>Email</div>
+    </div>
+    <span id="sheet-indicator"></span>
   </div>
-</div>
+</aside>
 
-<nav class="nav">
-  <div class="nav-tab active" onclick="switchTab('p0',this)">🔀 Message flow map</div>
-  <div class="nav-tab" onclick="switchTab('p1',this)">📨 Messages Library <span class="nbadge" id="b1"></span></div>
-  <div class="nav-tab" onclick="switchTab('p2',this)">🧭 Customer journeys</div>
-  <div class="nav-tab" onclick="switchTab('p3',this)">💰 SMS cost calculator</div>
-  <div class="nav-tab" onclick="switchTab('p5',this)">📶 Twilio SMS calculator</div>
-  <div class="nav-tab" onclick="switchTab('p4',this)">🌍 Global deployment cost</div>
-  <div class="nav-tab" onclick="switchTab('p6',this)">🌐 Global deployment Twilio</div>
-  <div style="margin-left:auto;display:flex;align-items:center;padding:0 8px;"><span id="sheet-indicator" style="font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap;"></span></div>
-</nav>
-
+<div class="main-content">
 <div class="intent-bar" id="intent-bar"></div>
 
 <div class="page active" id="p0"><div class="page-title">Message flow map <span class="page-note">Live routes — library to recipient · filtered by selected intent</span></div><div id="p0-content"></div></div>
@@ -269,7 +318,8 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 <div class="page" id="p4"><div class="page-title">Global deployment cost <span class="page-note">Projected annual SMS cost of deploying US notification coverage to all active markets</span></div><div id="p4-content"></div></div>
 <div class="page" id="p6"><div class="page-title">Global deployment Twilio <span class="page-note">Same view, Twilio rate card — 46 markets with both a contracted Twilio rate and order-volume data</span></div><div id="p6-content"></div></div>
 
-
+</div><!-- /main-content -->
+</div><!-- /app-shell -->
 
 <script>
 const INTENTS = [{"key":"documents_required","label":"Documents Required","icon":"📋","data":[]},{"key":"balance_settlement","label":"Balance Settlement Deposit","icon":"💰","data":[]},{"key":"login_credentials","label":"Login Credentials or Password","icon":"🔑","data":[]},{"key":"interview_required","label":"Interview Required","icon":"🎙️","data":[]},{"key":"refunds","label":"Refunds","icon":"↩️","data":[]},{"key":"transaction_review","label":"Transaction Under Review","icon":"🔍","data":[]},{"key":"cancellations","label":"Cancellations - Order on Hold","icon":"❌","data":[]},{"key":"transaction_status","label":"Transaction Status","icon":"📡","data":[]},{"key":"account_messages","label":"Account Messages","icon":"👤","data":[]}];
