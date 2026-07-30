@@ -1,53 +1,78 @@
-# Ria Money Transfer — Customer Messaging Map V3.0
-Internal dashboard mapping all customer-facing messages across channels, intents, and markets.
+# Ria B&M Messaging Hub V4.2.0.0
+
+Internal dashboard mapping all customer-facing messages across channels, intents, and markets — plus the cost modeling behind them.
 
 ## What is this?
-A single-file interactive dashboard that centralises all messaging intelligence for Ria B&M and Digital customers. Built for the CX team to understand what messages are sent, when, to whom, and at what cost.
+
+A single-file interactive dashboard that centralises all messaging intelligence and cost modeling for Ria B&M and Digital customers. Built for the CX team to understand what messages are sent, when, to whom, at what cost, and why the numbers say what they say.
 
 ## What's inside
 
-**Tab 1 — Message Flow Map**
-Visual diagram of message routes. Filter by trigger event and country to see which regions receive a message, through which channel, and to whom.
+Navigation is grouped into three sections in the left sidebar:
 
-**Tab 2 — Messages Library**
+### Explore
+
+**Message Flow Map**
+Visual diagram of message routes. Filter by trigger event and country to see which regions receive a message, through which channel, and to whom. Renders progressively as you scroll (only builds the routes currently in view, not all of them at once), and the URL updates as you filter — copy the link to share the exact view you're looking at.
+
+**Messages Library**
 The full message library. Browse all live templates by intent and audience. Click any card to read the full message content.
 
-**Tab 3 — Customer Journeys**
-The six main customer scenarios (Order Confirmed, Order Pickup, Pickup Reminders, Cancelled & Refund, Legal Hold, Transfer Resent), with the messaging attached to each step.
+**Customer Journeys**
+The six main customer scenarios (Order Confirmed, Order Pickup, Pickup Reminders, Cancelled & Refund, Legal Hold, Transfer Resent), with the messaging attached to each step. Each message is cross-matched against the live sheet by title, so anything not marked Live there won't show here either.
 
-**Tab 4 — SMS Cost Calculator**
-Country-level SMS cost projection based on 2025 order volumes and current Clickatell telco rates.
+### Cost Modeling
 
-**Tab 5 — Twilio SMS Calculator**
-Same cost model as Tab 4, using Twilio's contracted rates (Order Form 00142240.0, effective Aug 1, 2025) instead of Clickatell's. Built to estimate the cost of sending B&M SMS through Iterable, which routes via Twilio. Covers only the 57 countries priced in the current Twilio contract — other countries fall back to Twilio's public rate card (twilio.com/pricing), which is not reflected in this tab. US and Canada rates exclude an additional, unquantified carrier-fee surcharge (twilio.com/sms/pricing). 11 priced countries have no order-volume data on file and require manual entry.
+**SMS Cost Calculator**
+Country-level SMS cost projection based on 2025 order volumes and current Clickatell telco rates. Includes an SMS opt-in scenario slider — models what cost looks like if the share of customers opted in to SMS changes, using today's real US opt-in rate (≈26%) as the baseline.
 
-**Tab 6 — Global Deployment Cost**
+**Twilio SMS Calculator**
+Same cost model, using Twilio's contracted rates (Order Form 00142240.0, effective Aug 1, 2025) instead of Clickatell's. Built to estimate the cost of sending B&M SMS through Iterable, which routes via Twilio. Covers only the 57 countries priced in the current Twilio contract — other countries fall back to Twilio's public rate card (twilio.com/pricing), which is not reflected in this tab. US and Canada rates exclude an additional, unquantified carrier-fee surcharge (twilio.com/sms/pricing). 11 priced countries have no order-volume data on file and require manual entry.
+
+**Global Deployment Cost**
 Executive view of projected SMS spend across all 139 markets, using Clickatell rates. Sortable by any column. Filter by region or individual country.
 
-**Tab 7 — Global Deployment Twilio**
-Same view as Tab 6, using Twilio's rate card. Covers 46 markets — the subset of the 57 Twilio-priced countries that also have order-volume data on file. The 11 without order data are listed in-tab rather than estimated.
+**Global Deployment Twilio**
+Same view, using Twilio's rate card. Covers 46 markets — the subset of the 57 Twilio-priced countries that also have order-volume data on file. The 11 without order data are listed in-tab rather than estimated.
+
+### Methodology
+
+**How We Calculate This**
+A plain-language breakdown of the three cost concepts used throughout the tool (actual cost, cost at full scale, cost at an opt-in scenario), the participation-rate proxy model, what "Live" means and how it's enforced, and every data source behind the numbers.
 
 ## Data sources
+
 - **B&M messaging templates** — Clickatell
 - **Digital messaging templates** — Ria Iterable (global) and MY Wallet platform (Malaysia)
 - **Order volumes** — Power BI, all B&M markets, 2025
 - **SMS costs (Clickatell)** — current contracted telco rates
 - **SMS costs (Twilio)** — Twilio Order Form 00142240.0, Exhibit A rate schedule, effective Aug 1, 2025
 - **Clickatell billing** — 2025 invoices
+- **SMS opt-in data** — US opt-in counts by channel (email/SMS/WhatsApp), used as the opt-in baseline
 
-## Live data connection (V2.0+)
-The dashboard is connected to a Google Sheet as its live data source. All message templates are stored in the sheet across two tabs — **B&M** and **Digital** — following the same column structure as the Ria transactional message library, with one additional column: **Intent**.
+## Live data connection
 
-When a new message is added to the library, copy the row into the relevant sheet tab, fill in the Intent column, and the dashboard will reflect the update on next refresh. No file replacement needed.
+The dashboard is connected to a Google Sheet as its live data source. All message templates are stored in the sheet across two tabs — **B&M** and **Digital** — following the same column structure as the Ria transactional message library, with two additional columns: **Intent** and **Live**.
+
+Only rows marked **Live = Yes** are ever pulled into the dashboard — that filter now happens server-side, via a Google Sheets query, so non-live rows are never even downloaded, not just hidden after the fact. This applies to Message Flow Map, Messages Library, and (via title cross-match) Customer Journeys.
+
+When a new message is added to the library, copy the row into the relevant sheet tab, fill in the Intent column, mark Live as needed, and the dashboard will reflect the update on next refresh. No file replacement needed.
 
 Sheet structure mirrors the library exactly:
-`Product type | Channel | Event that triggers the message send | Message template title | Message | Subject | Language | Send system | Message recipient | From address | Format type | Service | Payment method | Country to | B&M email message incl. HTML | MessageID | Event ID | Agent Company | Intent`
 
-Note: the SMS cost calculators (Tabs 4 and 5) and both Global Deployment Cost tabs (Tabs 6 and 7) are **not** sheet-fed — country rates, order volumes, and US participation rates are hardcoded in `index.html`. Updating a rate in any of these requires a code edit and a new push, not a sheet update.
+`Product type | Channel | Event that triggers the message send | Message template title | Message | Subject | Language | Send system | Message recipient | From address | Format type | Service | Payment method | Country to | B&M email message incl. HTML | MessageID | Event ID | Agent Company | Intent | Live`
+
+**Note:** the SMS cost calculators and both Global Deployment Cost tabs are **not** sheet-fed — country rates, order volumes, and US participation rates are hardcoded in `index.html`. Updating a rate in any of these requires a code edit and a new push, not a sheet update.
+
+## First-time / returning users
+
+The dashboard shows a one-time welcome message to first-time visitors, and a lighter "what's new" callout to anyone returning from a version before this redesign (V3 and earlier). Neither shows again after being dismissed — this is tracked per-browser via local storage, keyed to the app version.
 
 ## How to update the dashboard interface
+
 Replace `index.html` in this repository with the new version. The URL stays the same.
 
 ## Owner
+
 CX Team — Ria Money Transfer
 Built and maintained by Paul
