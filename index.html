@@ -9,7 +9,7 @@
 :root {
   /* Ria brand */
   --navy:#001133;--navy-2:#0A2050;--navy-3:#132A5C;
-  --sidebar-bg:#7A3300; /* Ria default: dark burnt-orange so the sidebar itself reads as branded, not just its accents */
+  --sidebar-bg:#FF6100; /* exact Ria Orange per brand guideline (HEX #FF6100) */
   --orange:#FF6100;--orange-bg:#FFF0E6;--orange-dim:#E5570A;
   --salmon:#FAD2BE;--soft-blue:#CDE1E1;
 
@@ -41,6 +41,7 @@ body.brand-xe{--orange:#1B57D6;--orange-bg:#E8EEFB;--orange-dim:#1846AD;--purple
 .sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--sidebar-bg);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
 
 .brand-toggle{position:relative;display:flex;margin:16px;background:rgba(0,0,0,.2);border-radius:12px;padding:3px;height:40px;}
+.sb-hub-title{padding:18px 16px 0;font-family:'Inter',sans-serif;font-weight:600;font-size:15px;color:#fff;letter-spacing:-.01em;}
 .brand-toggle-thumb{position:absolute;top:3px;left:3px;width:calc(50% - 3px);height:calc(100% - 6px);background:#fff;border-radius:9px;transition:transform .25s cubic-bezier(.4,0,.2,1);z-index:0;}
 .brand-toggle.xe-active .brand-toggle-thumb{transform:translateX(100%);}
 .brand-toggle-opt{position:relative;z-index:1;flex:1;background:none;border:none;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;color:rgba(255,255,255,.6);transition:color .2s;}
@@ -58,12 +59,12 @@ body.brand-xe{--orange:#1B57D6;--orange-bg:#E8EEFB;--orange-dim:#1846AD;--purple
 
 .sb-nav{flex:1;padding:16px 10px;overflow-y:auto;}
 .sb-section{margin-bottom:20px;}
-.sb-section-label{font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.38);padding:0 10px 8px;display:flex;align-items:center;gap:7px;}
-.sb-section-label::before{content:'';width:9px;height:2px;background:var(--orange);display:inline-block;border-radius:1px;}
+.sb-section-label{font-size:10px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.38);padding:0 10px 8px;display:flex;align-items:center;gap:7px;}
+.sb-section-label::before{content:'';width:9px;height:2px;background:rgba(255,255,255,.7);display:inline-block;border-radius:1px;}
 
 .nav-tab{padding:9px 12px;font-size:13px;font-weight:500;color:rgba(255,255,255,.7);cursor:pointer;border-radius:8px;margin-bottom:2px;white-space:nowrap;display:flex;align-items:center;gap:9px;user-select:none;border-left:3px solid transparent;transition:background .15s,color .15s;}
 .nav-tab:hover{background:rgba(255,255,255,.07);color:#fff;}
-.nav-tab.active{background:rgba(255,97,0,.18);color:#fff;border-left-color:var(--orange);font-weight:600;}
+.nav-tab.active{background:rgba(255,255,255,.2);color:#fff;border-left-color:#fff;font-weight:600;}
 .nbadge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.7);margin-left:auto;}
 .nav-tab.active .nbadge{background:var(--orange);color:#fff;}
 
@@ -114,7 +115,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 /* PAGES */
 .page{display:none;padding:24px 32px 48px;}
 .page.active{display:block;}
-.page-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:18px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.page-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:18px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .page-note{font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--hint);}
 
 /* EMPTY INTENT STATE */
@@ -171,7 +172,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 .msg-share-btn:hover{opacity:1;background:var(--purple-bg);color:var(--purple);}
 
 .iter-category{margin-bottom:22px;}
-.iter-category-hdr{display:flex;align-items:center;gap:14px;cursor:pointer;padding:6px 0 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);user-select:none;}
+.iter-category-hdr{display:flex;align-items:center;gap:14px;cursor:pointer;padding:6px 0 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);user-select:none;}
 .iter-category-line{flex:1;height:2px;background:var(--border-mid);}
 .iter-chevron{font-size:10px;color:var(--hint);flex-shrink:0;}
 
@@ -189,7 +190,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 .iter-expanded-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--purple-bg);font-size:12px;font-weight:700;color:var(--purple);}
 .iter-expand-close{background:none;border:1px solid var(--purple);color:var(--purple);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:inherit;}
 .iter-expand-close:hover{background:var(--purple);color:#fff;}
-.iter-expanded-body{padding:16px;overflow:auto;display:flex;justify-content:center;}
+.iter-expanded-body{padding:16px;overflow:hidden;display:flex;justify-content:center;}
 .msg-item.jump-highlight{outline:2px solid var(--orange);}
 .msg-item.is-draft{opacity:.48;}
 .msg-item.live-card{cursor:pointer;transition:border-color .15s;}
@@ -295,7 +296,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
   .sb-section{display:flex;align-items:center;gap:6px;margin-bottom:0;}
   .sb-section-label{display:none;}
   .nav-tab{margin-bottom:0;border-left:none;border-bottom:3px solid transparent;}
-  .nav-tab.active{border-left:none;border-bottom-color:var(--orange);}
+  .nav-tab.active{border-left:none;border-bottom-color:#fff;}
   .sb-footer{display:none;}
 }
 @media(max-width:640px){
@@ -325,6 +326,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 
 <div class="app-shell">
 <aside class="sidebar">
+  <div class="sb-hub-title">Messaging Hub</div>
   <div class="brand-toggle" id="brand-toggle">
     <div class="brand-toggle-thumb" id="brand-toggle-thumb"></div>
     <button class="brand-toggle-opt active" data-brand="ria" onclick="setBrand('ria')">
@@ -1175,14 +1177,17 @@ async function renderIterableJourneys(){
       const totalCamps = (j.campaigns||[]).length;
       const byChannel = {};
       (j.campaigns||[]).forEach(function(c){ (byChannel[c.channel] = byChannel[c.channel] || []).push(c); });
-      const chSummary = Object.keys(byChannel).map(function(ch){ return ch+' · '+byChannel[ch].length; }).join(' · ');
+      const chSummary = Object.keys(byChannel).map(function(ch){
+        const n = byChannel[ch].length;
+        return ch+' · '+n+' campaign'+(n!==1?'s':'');
+      }).join(' · ');
 
       html += '<div class="iter-journey-tile">';
       html += '<div class="iter-journey-hdr" onclick="toggleIterJourney('+j.id+')">';
       html += '<div><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:700;color:var(--text);">'+esc(j.name)+'</span>'
         + '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:20px;background:var(--purple-bg);color:var(--purple);">via Iterable</span></div>'
         + '<div style="font-size:11px;color:var(--muted);margin-top:3px;">Triggered by: '+esc((j.triggerEventNames||[]).join(', '))+'</div>'
-        + '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+esc(chSummary)+' · '+totalCamps+' campaign'+(totalCamps!==1?'s':'')+'</div></div>';
+        + '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+esc(chSummary)+'</div></div>';
       html += '<span class="iter-chevron">'+(jOpen?'&#9662;':'&#9656;')+'</span>';
       html += '</div>';
 
@@ -1280,9 +1285,11 @@ function mountExpandedInline(campaign, journeyId){
       const doc = iframe.contentDocument;
       const naturalH = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0) || 600;
       iframe.style.height = naturalH + 'px';
-      const availW = body.clientWidth || REF_WIDTH;
-      const scale = Math.min(availW / REF_WIDTH, 1);
+      const availW = (body.clientWidth || REF_WIDTH) - 8;
+      const availH = Math.max(260, window.innerHeight * 0.6); // always fit on screen, no internal scroll
+      const scale = Math.min(availW / REF_WIDTH, availH / naturalH, 1);
       iframe.style.transform = 'scale('+scale+')';
+      body.style.width = (REF_WIDTH*scale) + 'px';
       body.style.height = (naturalH*scale) + 'px';
     } catch(err){
       iframe.style.height = '600px';
