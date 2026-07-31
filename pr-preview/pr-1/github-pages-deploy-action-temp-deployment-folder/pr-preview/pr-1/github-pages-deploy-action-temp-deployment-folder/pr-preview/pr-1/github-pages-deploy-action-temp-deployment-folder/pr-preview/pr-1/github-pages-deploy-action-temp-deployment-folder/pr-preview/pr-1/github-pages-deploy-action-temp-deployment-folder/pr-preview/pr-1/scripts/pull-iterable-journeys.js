@@ -83,11 +83,23 @@ function pickSafeTemplateContent(medium, tpl) {
   return null;
 }
 
+function decodeEntities(str) {
+  const named = {
+    nbsp: ' ', zwnj: '', zwj: '', amp: '&', lt: '<', gt: '>',
+    quot: '"', apos: "'", '#39': "'",
+  };
+  return str
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&([a-zA-Z#0-9]+);/g, (m, name) => (name in named ? named[name] : m));
+}
+
 function stripHtml(html) {
-  return String(html)
+  return decodeEntities(String(html))
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
