@@ -1,6 +1,6 @@
 {
   "source": "iterable-sandbox",
-  "pulledAt": "2026-07-31T22:33:27.390Z",
+  "pulledAt": "2026-07-31T23:06:14.037Z",
   "journeys": [
     {
       "id": 226142,
@@ -8,12 +8,14 @@
       "triggerEventNames": [
         "Transaction On Hold"
       ],
+      "category": "Transactional",
       "campaigns": [
         {
           "id": 3736474,
           "name": "2202 Transaction On  Hold Test",
           "channel": "Email",
           "templateId": 5093529,
+          "labels": [],
           "content": {
             "subject": "Order Number {{ order_number }} - Request for Information",
             "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} Dear {{firstName}}, Thank you for choosing Ria for your recent money transfer. In order to comply with regulations, we need to document proof of your income. To complete your tra",
@@ -25,6 +27,9 @@
           "name": "211228 - Compliance Hold - Information Request",
           "channel": "Email",
           "templateId": 5464696,
+          "labels": [
+            "Transactional"
+          ],
           "content": {
             "subject": "{{{ snippet 'websiteCountry two letter transformation' }}} - Request for Information: {{ order_number }}",
             "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} Dear {{firstName}}, Thank you for choosing Ria for your recent money transfer. In order to comply with regulations, we need to document proof of your income. To complete your tra",
@@ -36,6 +41,9 @@
           "name": "Transaction on Hold",
           "channel": "Email",
           "templateId": 5532952,
+          "labels": [
+            "Transactional"
+          ],
           "content": {
             "subject": "{{{ snippet 'websiteCountry two letter transformation' }}} - Request for Information: {{transactionId}}",
             "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} Dear {{firstName}}, Thank you for choosing Ria for your recent money transfer. In order to comply with regulations, we need to document proof of your income. To complete your tra",
@@ -47,6 +55,7 @@
           "name": "Transaction on Hold",
           "channel": "Email",
           "templateId": 5533439,
+          "labels": [],
           "content": {
             "subject": "{{{ snippet 'locale country transformation' }}} - Request for Information: {{transactionId}}",
             "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} Dear {{firstName}}, Thank you for choosing Ria for your recent money transfer. In order to comply with regulations, we need to document proof of your income. To complete your tra",
@@ -58,6 +67,7 @@
           "name": "Transaction on Hold",
           "channel": "Email",
           "templateId": 5546544,
+          "labels": [],
           "content": {
             "subject": "{{{ snippet 'locale country transformation' }}} - Request for Information: {{transactionId}}",
             "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} Dear {{firstName}}, Thank you for choosing Ria for your recent money transfer. In order to comply with regulations, we need to document proof of your income. To complete your tra",
