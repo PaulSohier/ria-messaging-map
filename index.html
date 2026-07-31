@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ria B&M Messaging Hub</title>
+<title>Messaging Hub</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 :root {
@@ -292,9 +292,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
       <circle cx="62" cy="28" r="2.5" fill="#FF6100" opacity="0.5"/>
       <circle cx="124" cy="54" r="2.5" fill="#FF6100" opacity="0.5"/>
     </svg>
-    <div class="sb-brand-eyebrow">Ria Money Transfer</div>
-    <div class="sb-brand-title">Ria B&amp;M Messaging Hub</div>
-    <div class="sb-brand-sub">Comms Operations</div>
+    <div class="sb-brand-title">Messaging Hub</div>
   </div>
   <nav class="sb-nav">
     <div class="sb-section">
@@ -2124,7 +2122,7 @@ async function loadSheetData() {
 }
 
 /* ── ONBOARDING ── */
-const APP_VERSION = '4.2.0.0';
+const APP_VERSION = '4.4.0.0';
 const ONBOARD_KEY = 'riaMessagingHub_lastSeenVersion';
 
 function renderOnboardingModal(mode){
@@ -2142,8 +2140,9 @@ function renderOnboardingModal(mode){
       {icon:'💰', t:'Cost Modeling', d:'SMS cost calculators and global deployment cost projections, on both Clickatell and Twilio rates.'},
       {icon:'📐', t:'Methodology', d:'A plain-language breakdown of how every number here is actually calculated.'},
       {icon:'✓', t:'Live data', d:'Flow Map, Library, and Journeys only ever show messages marked Live in the source sheet.'},
+      {icon:'🔗', t:'Share a message', d:'Click the link icon on any message card in the Library to copy a link straight to it.'},
     ];
-  } else {
+  } else if(mode === 'whatsnew'){
     eyebrow = "What's new";
     title = 'This tool got a redesign';
     items = [
@@ -2151,6 +2150,15 @@ function renderOnboardingModal(mode){
       {icon:'🎨', t:'Ria brand identity', d:"Navy and orange, Ria's actual palette, replacing the old generic purple theme."},
       {icon:'📐', t:'New: Methodology tab', d:'A dedicated breakdown of how the cost figures and participation-rate model actually work.'},
       {icon:'🔗', t:'Shareable links', d:'Your current tab and filters are now reflected in the URL — copy the link to send someone the exact view you\'re looking at.'},
+      {icon:'📨', t:'Share a message', d:'Every message card in the Library now has a link icon — click it to copy a link straight to that specific message, already opened.'},
+    ];
+  } else {
+    eyebrow = 'New feature';
+    title = 'Share a link to any message';
+    items = [
+      {icon:'🔗', t:'Look for the link icon', d:'On the Messages Library tab, every message card has a small 🔗 in the top-right corner.'},
+      {icon:'📋', t:'Click it to copy a link', d:'That link goes straight to this exact message — no need to explain which tab, filter, or trigger event to click through.'},
+      {icon:'✨', t:'Try it', d:'Send it in Teams, drop it in a ticket, or paste it into a doc — whoever opens it lands on the message, already expanded.'},
     ];
   }
 
@@ -2176,13 +2184,14 @@ function dismissOnboarding(){
 function checkOnboarding(){
   let stored = null;
   try { stored = localStorage.getItem(ONBOARD_KEY); } catch(e){ stored = null; }
-  const currentMajor = parseInt(APP_VERSION.split('.')[0], 10);
+  const curParts = APP_VERSION.split('.').map(function(n){ return parseInt(n,10)||0; });
   let mode = null;
   if(stored === null){
     mode = 'first';
   } else {
-    const storedMajor = parseInt((stored.split('.')[0])||'0', 10);
-    if(storedMajor < currentMajor) mode = 'whatsnew';
+    const sParts = stored.split('.').map(function(n){ return parseInt(n,10)||0; });
+    if(sParts[0] < curParts[0]) mode = 'whatsnew';
+    else if(sParts[0] === curParts[0] && sParts[1] < curParts[1]) mode = 'feature';
   }
   if(mode) renderOnboardingModal(mode);
   try { localStorage.setItem(ONBOARD_KEY, APP_VERSION); } catch(e){}
