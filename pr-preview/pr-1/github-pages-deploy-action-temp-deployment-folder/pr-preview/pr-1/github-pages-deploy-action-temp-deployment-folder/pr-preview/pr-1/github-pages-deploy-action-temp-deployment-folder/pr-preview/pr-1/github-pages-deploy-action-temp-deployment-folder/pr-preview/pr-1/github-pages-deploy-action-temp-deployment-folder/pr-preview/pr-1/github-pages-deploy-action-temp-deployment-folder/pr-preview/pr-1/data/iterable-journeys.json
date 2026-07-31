@@ -1,6 +1,6 @@
 {
   "source": "iterable-sandbox",
-  "pulledAt": "2026-07-31T18:12:28.512Z",
+  "pulledAt": "2026-07-31T18:17:11.973Z",
   "journeys": [
     {
       "id": 226142,
@@ -16,7 +16,7 @@
           "templateId": 5093529,
           "content": {
             "subject": "Order Number {{ order_number }} - Request for Information",
-            "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} &nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbs"
+            "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} Dear {{firstName}}, Thank you for choosing Ria for your recent money transfer. In order to comply with regulations, we need to document proof of your income. To complete your tra"
           }
         },
         {
@@ -26,7 +26,7 @@
           "templateId": 5464696,
           "content": {
             "subject": "{{{ snippet 'websiteCountry two letter transformation' }}} - Request for Information: {{ order_number }}",
-            "preview": "96 Ria Your transfer is on it&#x2019;s way to {{destinationCountry}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zw"
+            "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} Dear {{firstName}}, Thank you for choosing Ria for your recent money transfer. In order to comply with regulations, we need to document proof of your income. To complete your tra"
           }
         },
         {
@@ -36,7 +36,7 @@
           "templateId": 5532952,
           "content": {
             "subject": "{{{ snippet 'websiteCountry two letter transformation' }}} - Request for Information: {{transactionId}}",
-            "preview": "96 Ria Your transfer is on it&#x2019;s way to {{destinationCountry}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zw"
+            "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} Dear {{firstName}}, Thank you for choosing Ria for your recent money transfer. In order to comply with regulations, we need to document proof of your income. To complete your tra"
           }
         },
         {
@@ -46,7 +46,7 @@
           "templateId": 5533439,
           "content": {
             "subject": "{{{ snippet 'locale country transformation' }}} - Request for Information: {{transactionId}}",
-            "preview": "96 Ria Your transfer is on it&#x2019;s way to {{destinationCountry}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zw"
+            "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} Dear {{firstName}}, Thank you for choosing Ria for your recent money transfer. In order to comply with regulations, we need to document proof of your income. To complete your tra"
           }
         },
         {
@@ -56,7 +56,7 @@
           "templateId": 5546544,
           "content": {
             "subject": "{{{ snippet 'locale country transformation' }}} - Request for Information: {{transactionId}}",
-            "preview": "96 Ria Your transfer is on it&#x2019;s way to {{destinationCountry}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zw"
+            "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} Dear {{firstName}}, Thank you for choosing Ria for your recent money transfer. In order to comply with regulations, we need to document proof of your income. To complete your tra"
           }
         }
       ]
