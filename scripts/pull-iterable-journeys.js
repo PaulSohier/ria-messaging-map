@@ -23,7 +23,7 @@
 
 const API_BASE = 'https://api.iterable.com/api';
 const API_KEY = process.env.ITERABLE_API_KEY;
-const JOURNEY_IDS = (process.env.JOURNEY_IDS || '226142')
+const JOURNEY_IDS = (process.env.JOURNEY_IDS || '226142,397134,687714,591526')
   .split(',')
   .map(s => parseInt(s.trim(), 10))
   .filter(n => !Number.isNaN(n));
