@@ -68,6 +68,7 @@ function pickSafeTemplateContent(medium, tpl) {
     return {
       subject: tpl.subject || null,
       preview: stripHtml(tpl.html || tpl.plainText || '').slice(0, 240) || null,
+      html: tpl.html || null,
     };
   }
   if (medium === 'Push') {
@@ -78,7 +79,10 @@ function pickSafeTemplateContent(medium, tpl) {
   }
   if (medium === 'InApp') {
     const body = tpl.htmlContent || tpl.html || null;
-    return { preview: stripHtml(body || '').slice(0, 240) || null };
+    return {
+      preview: stripHtml(body || '').slice(0, 240) || null,
+      html: body || null,
+    };
   }
   return null;
 }
