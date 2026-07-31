@@ -1,4 +1,4 @@
-# Ria B&M Messaging Hub V4.2.0.0
+# Messaging Hub V4.4.1.2
 
 Internal dashboard mapping all customer-facing messages across channels, intents, and markets — plus the cost modeling behind them.
 
@@ -16,7 +16,7 @@ Navigation is grouped into three sections in the left sidebar:
 Visual diagram of message routes. Filter by trigger event and country to see which regions receive a message, through which channel, and to whom. Renders progressively as you scroll (only builds the routes currently in view, not all of them at once), and the URL updates as you filter — copy the link to share the exact view you're looking at.
 
 **Messages Library**
-The full message library. Browse all live templates by intent and audience. Click any card to read the full message content.
+The full message library. Browse all live templates by intent and audience. Click any card to read the full message content. Every card also has a 🔗 share icon — click it to copy a link straight to that specific message, so anyone who opens it lands on that exact card, already expanded, without needing to be walked through which filters to click.
 
 **Customer Journeys**
 The six main customer scenarios (Order Confirmed, Order Pickup, Pickup Reminders, Cancelled & Refund, Legal Hold, Transfer Resent), with the messaging attached to each step. Each message is cross-matched against the live sheet by title, so anything not marked Live there won't show here either.
@@ -54,7 +54,7 @@ A plain-language breakdown of the three cost concepts used throughout the tool (
 
 The dashboard is connected to a Google Sheet as its live data source. All message templates are stored in the sheet across two tabs — **B&M** and **Digital** — following the same column structure as the Ria transactional message library, with two additional columns: **Intent** and **Live**.
 
-Only rows marked **Live = Yes** are ever pulled into the dashboard — that filter now happens server-side, via a Google Sheets query, so non-live rows are never even downloaded, not just hidden after the fact. This applies to Message Flow Map, Messages Library, and (via title cross-match) Customer Journeys.
+Only rows marked **Live = Yes** are ever pulled into the dashboard — that filter happens server-side, via a Google Sheets query, so non-live rows are never even downloaded, not just hidden after the fact. This applies to Message Flow Map, Messages Library, and (via title cross-match) Customer Journeys.
 
 When a new message is added to the library, copy the row into the relevant sheet tab, fill in the Intent column, mark Live as needed, and the dashboard will reflect the update on next refresh. No file replacement needed.
 
@@ -64,9 +64,11 @@ Sheet structure mirrors the library exactly:
 
 **Note:** the SMS cost calculators and both Global Deployment Cost tabs are **not** sheet-fed — country rates, order volumes, and US participation rates are hardcoded in `index.html`. Updating a rate in any of these requires a code edit and a new push, not a sheet update.
 
+**Note on message links:** the sheet's `MessageID` column is currently blank on every row, so per-message share links are built from a combination of title, region, channel, event, recipient, agent, and service instead. That's unique for the large majority of messages — a small number of genuine exact-duplicate rows in the sheet share a link, which is harmless since they show identical content either way. Populating `MessageID` for real would make this fully precise.
+
 ## First-time / returning users
 
-The dashboard shows a one-time welcome message to first-time visitors, and a lighter "what's new" callout to anyone returning from a version before this redesign (V3 and earlier). Neither shows again after being dismissed — this is tracked per-browser via local storage, keyed to the app version.
+The dashboard shows a one-time welcome message to first-time visitors. Returning users get a callout whenever something worth knowing has shipped since their last visit — a fuller "what's new" recap if they're coming from before the V4 redesign, or a lighter single-feature spotlight for smaller additions (e.g. the message share-link). Nothing repeats once dismissed for that version — this is tracked per-browser via local storage, keyed to the app version.
 
 ## How to update the dashboard interface
 
