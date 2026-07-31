@@ -1,0 +1,65 @@
+{
+  "source": "iterable-sandbox",
+  "pulledAt": "2026-07-31T18:03:46.563Z",
+  "journeys": [
+    {
+      "id": 226142,
+      "name": "Transaction On Hold: Staging Test",
+      "triggerEventNames": [
+        "Transaction On Hold"
+      ],
+      "campaigns": [
+        {
+          "id": 3736474,
+          "name": "2202 Transaction On  Hold Test",
+          "channel": "Email",
+          "templateId": 5093529,
+          "content": {
+            "subject": "Order Number {{ order_number }} - Request for Information",
+            "preview": "96 Ria /* RESET CSS */ table td { border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; } body { font-family: 'Nunito Sans', Arial, sans-serif; font-size: 16px; line-height: 24px; color: #4d4b48; -webki"
+          }
+        },
+        {
+          "id": 4013556,
+          "name": "211228 - Compliance Hold - Information Request",
+          "channel": "Email",
+          "templateId": 5464696,
+          "content": {
+            "subject": "{{{ snippet 'websiteCountry two letter transformation' }}} - Request for Information: {{ order_number }}",
+            "preview": "96 Ria /* RESET CSS */ table td { border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; } body { font-family: 'Nunito Sans', Arial, sans-serif; font-size: 16px; line-height: 24px; color: #4d4b48; -webki"
+          }
+        },
+        {
+          "id": 4064415,
+          "name": "Transaction on Hold",
+          "channel": "Email",
+          "templateId": 5532952,
+          "content": {
+            "subject": "{{{ snippet 'websiteCountry two letter transformation' }}} - Request for Information: {{transactionId}}",
+            "preview": "96 Ria /* RESET CSS */ table td { border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; } body { font-family: 'Nunito Sans', Arial, sans-serif; font-size: 16px; line-height: 24px; color: #4d4b48; -webki"
+          }
+        },
+        {
+          "id": 4064809,
+          "name": "Transaction on Hold",
+          "channel": "Email",
+          "templateId": 5533439,
+          "content": {
+            "subject": "{{{ snippet 'locale country transformation' }}} - Request for Information: {{transactionId}}",
+            "preview": "96 Ria /* RESET CSS */ table td { border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; } body { font-family: 'Nunito Sans', Arial, sans-serif; font-size: 16px; line-height: 24px; color: #4d4b48; -webki"
+          }
+        },
+        {
+          "id": 4074238,
+          "name": "Transaction on Hold",
+          "channel": "Email",
+          "templateId": 5546544,
+          "content": {
+            "subject": "{{{ snippet 'locale country transformation' }}} - Request for Information: {{transactionId}}",
+            "preview": "96 Ria /* RESET CSS */ table td { border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; } body { font-family: 'Nunito Sans', Arial, sans-serif; font-size: 16px; line-height: 24px; color: #4d4b48; -webki"
+          }
+        }
+      ]
+    }
+  ]
+}
