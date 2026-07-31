@@ -9,7 +9,6 @@
 :root {
   /* Ria brand */
   --navy:#001133;--navy-2:#0A2050;--navy-3:#132A5C;
-  --sidebar-bg:#2E1607; /* Ria default: dark, orange-family tone so the sidebar itself reads as branded, not just its accents */
   --orange:#FF6100;--orange-bg:#FFF0E6;--orange-dim:#E5570A;
   --salmon:#FAD2BE;--soft-blue:#CDE1E1;
 
@@ -29,29 +28,16 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 
-/* Xe theme — same navy base as Ria (matches Xe's real site), accent swaps to Xe blue.
-   Everything threaded through --orange/--purple re-colors automatically. */
-body.brand-xe{--orange:#1B57D6;--orange-bg:#E8EEFB;--orange-dim:#1846AD;--purple:#1B57D6;--purple-bg:#E8EEFB;--sidebar-bg:#001133;}
-
 /* APP SHELL */
 .app-shell{display:flex;min-height:100vh;align-items:flex-start;}
 
 /* SIDEBAR */
-.sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--sidebar-bg);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
-
-.brand-toggle{position:relative;display:flex;margin:16px;background:rgba(0,0,0,.2);border-radius:12px;padding:3px;height:40px;}
-.brand-toggle-thumb{position:absolute;top:3px;left:3px;width:calc(50% - 3px);height:calc(100% - 6px);background:#fff;border-radius:9px;transition:transform .25s cubic-bezier(.4,0,.2,1);z-index:0;}
-.brand-toggle.xe-active .brand-toggle-thumb{transform:translateX(100%);}
-.brand-toggle-opt{position:relative;z-index:1;flex:1;background:none;border:none;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;color:rgba(255,255,255,.6);transition:color .2s;}
-.brand-toggle-opt:hover{color:rgba(255,255,255,.85);}
-.brand-toggle-opt.active{color:var(--sidebar-bg);}
-.brand-logo-sm{width:18px;height:18px;border-radius:5px;object-fit:cover;}
-
-.audience-switcher{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.1);}
-.aud-opt{flex:1;background:rgba(255,255,255,.06);border:none;color:rgba(255,255,255,.6);padding:7px 0;border-radius:7px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;transition:background .15s,color .15s;}
-.aud-opt:hover{background:rgba(255,255,255,.12);color:#fff;}
-.aud-opt.active{background:var(--orange);color:#fff;}
-.audience-switcher.disabled{opacity:.35;pointer-events:none;}
+.sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--navy);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.sb-brand{padding:22px 20px 18px;border-bottom:1px solid rgba(255,255,255,.1);position:relative;overflow:hidden;}
+.sb-brand-eyebrow{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:5px;position:relative;z-index:1;}
+.sb-brand-title{font-size:17px;font-weight:700;color:#fff;line-height:1.25;position:relative;z-index:1;}
+.sb-brand-sub{font-size:11px;color:rgba(255,255,255,.45);margin-top:3px;position:relative;z-index:1;}
+.sb-flowline{position:absolute;right:-10px;top:-6px;width:150px;height:90px;opacity:.5;pointer-events:none;}
 
 .sb-nav{flex:1;padding:16px 10px;overflow-y:auto;}
 .sb-section{margin-bottom:20px;}
@@ -299,20 +285,34 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 
 <div class="app-shell">
 <aside class="sidebar">
-  <div class="brand-toggle" id="brand-toggle">
-    <div class="brand-toggle-thumb" id="brand-toggle-thumb"></div>
-    <button class="brand-toggle-opt active" data-brand="ria" onclick="setBrand('ria')">
-      <img src="data:image/png;base64,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" alt="" class="brand-logo-sm">Ria
-    </button>
-    <button class="brand-toggle-opt" data-brand="xe" onclick="setBrand('xe')">
-      <img src="data:image/png;base64,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" alt="" class="brand-logo-sm">Xe
-    </button>
+  <div class="sb-brand">
+    <svg class="sb-flowline" viewBox="0 0 150 90" xmlns="http://www.w3.org/2000/svg">
+      <path d="M-5,72 C28,72 30,28 62,28 C94,28 92,54 124,54 C138,54 142,38 152,32" fill="none" stroke="#FF6100" stroke-width="2" opacity="0.55"/>
+      <circle cx="152" cy="32" r="3" fill="#FF6100" opacity="0.85"/>
+      <circle cx="62" cy="28" r="2.5" fill="#FF6100" opacity="0.5"/>
+      <circle cx="124" cy="54" r="2.5" fill="#FF6100" opacity="0.5"/>
+    </svg>
+    <div class="sb-brand-title">Messaging Hub</div>
   </div>
-  <div class="audience-switcher" id="audience-switcher">
-    <button class="aud-opt active" data-aud="bm" onclick="setStructuralAudience('bm')">B&amp;M</button>
-    <button class="aud-opt" data-aud="digital" onclick="setStructuralAudience('digital')">Digital</button>
-  </div>
-  <nav class="sb-nav" id="sb-nav"></nav>
+  <nav class="sb-nav">
+    <div class="sb-section">
+      <div class="sb-section-label">Explore</div>
+      <div class="nav-tab active" data-tab="p0" onclick="switchTab('p0',this)">🔀 Message flow map</div>
+      <div class="nav-tab" data-tab="p1" onclick="switchTab('p1',this)">📨 Messages Library <span class="nbadge" id="b1"></span></div>
+      <div class="nav-tab" data-tab="p2" onclick="switchTab('p2',this)">🧭 Customer journeys</div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-section-label">Cost Modeling</div>
+      <div class="nav-tab" data-tab="p3" onclick="switchTab('p3',this)">💰 SMS cost calculator</div>
+      <div class="nav-tab" data-tab="p5" onclick="switchTab('p5',this)">📶 Twilio SMS calculator</div>
+      <div class="nav-tab" data-tab="p4" onclick="switchTab('p4',this)">🌍 Global deployment cost</div>
+      <div class="nav-tab" data-tab="p6" onclick="switchTab('p6',this)">🌐 Global deployment Twilio</div>
+    </div>
+    <div class="sb-section">
+      <div class="sb-section-label">Methodology</div>
+      <div class="nav-tab" data-tab="p7" onclick="switchTab('p7',this)">📐 How we calculate this</div>
+    </div>
+  </nav>
   <div class="sb-footer">
     <div class="sb-legend">
       <div class="leg"><div class="leg-dot" style="background:var(--live)"></div>Live</div>
@@ -396,8 +396,7 @@ const INTENTS = [{"key":"documents_required","label":"Documents Required","icon"
 
 /* ── STATE ── */
 let activeIntent = 'all';
-let activeAudience = 'bm'; // structural now: 'bm' or 'digital' (only meaningful when activeBrand==='ria')
-let activeBrand = 'ria'; // 'ria' or 'xe'
+let activeAudience = 'all'; // 'all', 'bm', 'digital'
 let activeTab = 'p0';
 let searchQuery = '';
 
@@ -442,24 +441,25 @@ function getData(){
     const found = INTENTS.find(i=>i.key===activeIntent);
     data = found ? found.data : [];
   }
-  // Audience here means "which section" (B&M vs Digital), and that has to be
-  // channel-based, not just which sheet tab a row came from — the B&M sheet tab
-  // contains some Email rows (e.g. agent-facing notifications) that must show
-  // under Digital, not B&M, regardless of their source tab.
-  const BM_CHANNELS = ['SMS','WhatsApp'];
-  const DIGITAL_CHANNELS = ['Email','Push','InApp','In-App','In-app'];
-  if(activeAudience==='bm') data = data.filter(d=>BM_CHANNELS.indexOf(d.channel)!==-1);
-  if(activeAudience==='digital') data = data.filter(d=>DIGITAL_CHANNELS.indexOf(d.channel)!==-1);
+  if(activeAudience==='bm') data = data.filter(d=>d.audience==='bm' || !d.audience);
+  if(activeAudience==='digital') data = data.filter(d=>d.audience==='digital');
   return data;
 }
+
+function setAudience(val){
+  activeAudience = val;
+  document.querySelectorAll('.aud-pill').forEach(p=>p.classList.toggle('active', p.dataset.aud===val));
+  renderPage(activeTab);
+  updateURLState();
+}
+
 
 /* ── URL DEEP LINKS ── */
 function updateURLState(){
   const params = new URLSearchParams();
-  if(activeBrand !== 'ria') params.set('brand', activeBrand);
   if(activeTab !== 'p0') params.set('tab', activeTab);
   if(activeIntent !== 'all') params.set('intent', activeIntent);
-  if(activeAudience !== 'bm') params.set('aud', activeAudience);
+  if(activeAudience !== 'all') params.set('aud', activeAudience);
   if(activeTab === 'p0' && window._flowState){
     if(window._flowState.event !== 'all') params.set('event', window._flowState.event);
     if(window._flowState.country !== 'all') params.set('country', window._flowState.country);
@@ -471,7 +471,6 @@ function updateURLState(){
 
 function applyURLState(){
   const params = new URLSearchParams(window.location.search);
-  if(params.has('brand')) activeBrand = params.get('brand');
   if(params.has('tab')) activeTab = params.get('tab');
   if(params.has('intent')) activeIntent = params.get('intent');
   if(params.has('aud')) activeAudience = params.get('aud');
@@ -515,6 +514,18 @@ function shortMsg(m){ return m.length>180?m.substring(0,177)+'…':m; }
 function buildIntentBar(){
   const bar = document.getElementById('intent-bar');
 
+  // Audience filter row
+  const existingAudBar = document.getElementById('audience-bar');
+  if(existingAudBar) existingAudBar.remove();
+  const audDiv = document.createElement('div');
+  audDiv.id = 'audience-bar';
+  audDiv.style.cssText = 'display:flex;gap:6px;padding:6px 16px 0;border-bottom:1px solid var(--border);background:var(--bg);align-items:center;';
+  audDiv.innerHTML = '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-right:4px;">Channel type</span>'
+    + '<div class="aud-pill" data-aud="all" onclick="setAudience(\'all\')">\uD83D\uDD00 All</div>'
+    + '<div class="aud-pill" data-aud="bm" onclick="setAudience(\'bm\')">\uD83C\uDFEA B&M only</div>'
+    + '<div class="aud-pill" data-aud="digital" onclick="setAudience(\'digital\')">\uD83D\uDCBB Digital only</div>';
+  bar.parentNode.insertBefore(audDiv, bar);
+
   let html = `<div class="intent-pill ${activeIntent==='all'?'active':''}" onclick="setIntent('all',this)">All intents</div>`;
   INTENTS.forEach(intent=>{
     const total = intent.data.length;
@@ -525,112 +536,7 @@ function buildIntentBar(){
     </div>`;
   });
   bar.innerHTML = html;
-}
-
-/* ── BRAND / STRUCTURAL AUDIENCE ── */
-// Ria's nav differs by audience: B&M keeps everything that exists today, Digital
-// is Explore-only for now (no cost data, no methodology content for Digital yet).
-const NAV_CONFIG = {
-  bm: [
-    {section:'Explore', items:[
-      {id:'p0', icon:'🔀', label:'Message flow map'},
-      {id:'p1', icon:'📨', label:'Messages Library', badge:'b1'},
-      {id:'p2', icon:'🧭', label:'Customer journeys'},
-    ]},
-    {section:'Cost Modeling', items:[
-      {id:'p3', icon:'💰', label:'SMS cost calculator'},
-      {id:'p5', icon:'📶', label:'Twilio SMS calculator'},
-      {id:'p4', icon:'🌍', label:'Global deployment cost'},
-      {id:'p6', icon:'🌐', label:'Global deployment Twilio'},
-    ]},
-    {section:'Methodology', items:[
-      {id:'p7', icon:'📐', label:'How we calculate this'},
-    ]},
-  ],
-  digital: [
-    {section:'Explore', items:[
-      {id:'p0', icon:'🔀', label:'Message flow map'},
-      {id:'p1', icon:'📨', label:'Messages Library', badge:'b1'},
-      {id:'p2', icon:'🧭', label:'Customer journeys'},
-    ]},
-  ],
-};
-
-function renderSidebarNav(){
-  const nav = document.getElementById('sb-nav');
-  if(activeBrand === 'xe'){
-    nav.innerHTML = '<div style="padding:16px 12px;font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;">Xe isn\'t built yet — this option exists so the structure is ready when that work starts.</div>';
-    return;
-  }
-  const sections = NAV_CONFIG[activeAudience] || NAV_CONFIG.bm;
-  let html = '';
-  sections.forEach(function(sec){
-    html += '<div class="sb-section"><div class="sb-section-label">'+sec.section+'</div>';
-    sec.items.forEach(function(item){
-      html += '<div class="nav-tab" data-tab="'+item.id+'" onclick="switchTab(\''+item.id+'\',this)">'+item.icon+' '+item.label
-        + (item.badge ? ' <span class="nbadge" id="'+item.badge+'"></span>' : '') + '</div>';
-    });
-    html += '</div>';
-  });
-  nav.innerHTML = html;
-  const validIds = sections.flatMap(function(s){ return s.items.map(function(i){ return i.id; }); });
-  if(validIds.indexOf(activeTab) === -1){
-    activeTab = validIds[0] || 'p0';
-  }
-}
-
-function setStructuralAudience(aud){
-  if(activeBrand !== 'ria') return;
-  activeAudience = aud;
-  document.querySelectorAll('.aud-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.aud===aud); });
-  renderSidebarNav();
-  // Country lists differ by audience (real countries for B&M vs Digital's two regions),
-  // so reset the Flow Map default rather than carry over a filter that won't match anything.
-  window._flowState = {event:'all', country: aud==='digital' ? 'Digital — Global' : 'United States'};
-  activateNavTabFor(activeTab);
-  renderPage(activeTab);
-  updateURLState();
-}
-
-function setBrand(brand){
-  activeBrand = brand;
-  document.body.classList.toggle('brand-xe', brand === 'xe');
-  document.querySelectorAll('.brand-toggle-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.brand===brand); });
-  const toggle = document.getElementById('brand-toggle');
-  if(toggle) toggle.classList.toggle('xe-active', brand === 'xe');
-  const audSwitcher = document.getElementById('audience-switcher');
-  if(audSwitcher) audSwitcher.classList.toggle('disabled', brand === 'xe');
-
-  if(brand === 'ria'){
-    activeAudience = document.querySelector('.aud-opt.active') ? document.querySelector('.aud-opt.active').dataset.aud : 'bm';
-    renderSidebarNav();
-    activateNavTabFor(activeTab);
-    renderPage(activeTab);
-  } else {
-    renderSidebarNav();
-    renderXePlaceholder();
-  }
-  updateURLState();
-}
-
-function renderXePlaceholder(){
-  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
-  const intentBar = document.getElementById('intent-bar');
-  if(intentBar) intentBar.style.display = 'none';
-  let holder = document.getElementById('xe-placeholder');
-  if(!holder){
-    holder = document.createElement('div');
-    holder.id = 'xe-placeholder';
-    holder.className = 'page';
-    document.querySelector('.main-content').appendChild(holder);
-  }
-  holder.classList.add('active');
-  holder.innerHTML = '<div class="page-title">Xe <span class="page-note">Not built yet</span></div>'
-    + '<div style="max-width:480px;padding:60px 0;text-align:center;margin:0 auto;">'
-    + '<div style="font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text);">Xe isn\'t built yet</div>'
-    + '<div style="font-size:13px;color:var(--muted);line-height:1.6;">This option exists in the switcher so the structure is ready for when Xe messaging work starts. Nothing here is designed or populated yet.</div>'
-    + '<button class="onboard-btn" style="margin-top:20px;" onclick="setBrand(\'ria\')">Back to Ria</button>'
-    + '</div>';
+  document.querySelectorAll('.aud-pill').forEach(p=>p.classList.toggle('active', p.dataset.aud===activeAudience));
 }
 
 function setIntent(key, el){
@@ -1143,7 +1049,6 @@ function renderJourneys(){
   let html = '<div style="max-width:1600px;width:100%;">';
 
   JOURNEYS.forEach(function(journey){
-    if(activeBrand === 'ria' && journey.audience !== activeAudience) return;
     var color  = journey.color;
     var bg     = journey.bg;
 
@@ -1553,10 +1458,8 @@ function renderP1(){
     }
 
     var filteredData = intent.data.filter(function(d){
-      var isBmChannel = ['SMS','WhatsApp'].indexOf(d.channel) !== -1;
-      var isDigitalChannel = ['Email','Push','InApp','In-App','In-app'].indexOf(d.channel) !== -1;
-      if(activeAudience==='bm' && !isBmChannel) return false;
-      if(activeAudience==='digital' && !isDigitalChannel) return false;
+      if(activeAudience==='bm' && d.audience==='digital') return false;
+      if(activeAudience==='digital' && d.audience!=='digital') return false;
       if(q){
         var titleMatch = (d.title||'').toLowerCase().indexOf(q) !== -1;
         var msgMatch = (d.msg||'').toLowerCase().indexOf(q) !== -1;
@@ -1659,8 +1562,7 @@ function renderP1(){
   }
 
   document.getElementById('p1-content').innerHTML = html || '<div class="empty-intent"><div class="empty-intent-icon">📭</div><div class="empty-intent-title">No data</div></div>';
-  const b1El = document.getElementById('b1');
-  if(b1El) b1El.textContent = totalLive;
+  document.getElementById('b1').textContent = totalLive;
   var countEl = document.getElementById('p1-search-count');
   if(countEl) countEl.textContent = q ? (totalMatched + (totalMatched===1?' match':' matches')) : '';
 }
@@ -2298,21 +2200,9 @@ function checkOnboarding(){
 /* ── INIT ── */
 applyURLState();
 if(!document.getElementById(activeTab)) activeTab = 'p0';
-document.body.classList.toggle('brand-xe', activeBrand === 'xe');
-document.querySelectorAll('.brand-toggle-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.brand===activeBrand); });
-const initialBrandToggle = document.getElementById('brand-toggle');
-if(initialBrandToggle) initialBrandToggle.classList.toggle('xe-active', activeBrand === 'xe');
-document.querySelectorAll('.aud-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.aud===activeAudience); });
-const initialAudSwitcher = document.getElementById('audience-switcher');
-if(initialAudSwitcher) initialAudSwitcher.classList.toggle('disabled', activeBrand === 'xe');
-renderSidebarNav();
 buildIntentBar();
-if(activeBrand === 'xe'){
-  renderXePlaceholder();
-} else {
-  activateNavTabFor(activeTab);
-  renderPage(activeTab);
-}
+activateNavTabFor(activeTab);
+renderPage(activeTab);
 
 // Load sheet data after initial render
 loadSheetData();
