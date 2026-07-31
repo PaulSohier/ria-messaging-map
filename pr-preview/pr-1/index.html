@@ -183,6 +183,13 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 .iter-thumb-inner{width:96px;height:128px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff;position:relative;transition:border-color .15s;}
 .iter-thumb:hover .iter-thumb-inner{border-color:var(--purple);}
 .iter-thumb-label{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.3;max-height:2.6em;overflow:hidden;text-align:center;}
+.iter-thumb-active .iter-thumb-inner{border-color:var(--purple);border-width:2px;}
+
+.iter-expanded-panel{margin-top:14px;border:1px solid var(--purple);border-radius:8px;overflow:hidden;background:#fff;}
+.iter-expanded-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--purple-bg);font-size:12px;font-weight:700;color:var(--purple);}
+.iter-expand-close{background:none;border:1px solid var(--purple);color:var(--purple);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:inherit;}
+.iter-expand-close:hover{background:var(--purple);color:#fff;}
+.iter-expanded-body{padding:16px;overflow:auto;display:flex;justify-content:center;}
 .msg-item.jump-highlight{outline:2px solid var(--orange);}
 .msg-item.is-draft{opacity:.48;}
 .msg-item.live-card{cursor:pointer;transition:border-color .15s;}
@@ -1181,12 +1188,25 @@ async function renderIterableJourneys(){
 
       html += '<div class="iter-thumbs-row" style="display:'+(jOpen?'flex':'none')+'">';
       (j.campaigns||[]).forEach(function(c){
-        html += '<div class="iter-thumb" onclick="showIterableCampaign('+c.id+')" title="'+esc(c.name)+'">'
+        const isExpanded = _iterExpanded[j.id] === c.id;
+        html += '<div class="iter-thumb'+(isExpanded?' iter-thumb-active':'')+'" onclick="toggleIterableCampaign('+c.id+','+j.id+')" title="'+esc(c.name)+'">'
           + '<div class="iter-thumb-inner" id="iter-thumb-'+c.id+'"></div>'
           + '<div class="iter-thumb-label">'+esc(c.name)+'</div>'
           + '</div>';
       });
       html += '</div>'; // thumbs-row
+
+      if(jOpen && _iterExpanded[j.id]){
+        const expandedCamp = (j.campaigns||[]).find(function(c){ return c.id === _iterExpanded[j.id]; });
+        if(expandedCamp){
+          html += '<div class="iter-expanded-panel">'
+            + '<div class="iter-expanded-hdr"><span>'+esc(expandedCamp.name)+'</span>'
+            + '<button onclick="toggleIterableCampaign('+expandedCamp.id+','+j.id+')" class="iter-expand-close">Collapse</button></div>'
+            + '<div class="iter-expanded-body" id="iter-expand-body-'+j.id+'"></div>'
+            + '</div>';
+        }
+      }
+
       html += '</div>'; // journey-tile
     });
 
@@ -1200,6 +1220,10 @@ async function renderIterableJourneys(){
   journeys.forEach(function(j){
     if(!_iterJourneyState[j.id]) return;
     (j.campaigns||[]).forEach(function(c){ mountThumbnail(c); });
+    if(_iterExpanded[j.id]){
+      const expandedCamp = (j.campaigns||[]).find(function(c){ return c.id === _iterExpanded[j.id]; });
+      if(expandedCamp) mountExpandedInline(expandedCamp, j.id);
+    }
   });
 }
 
@@ -1228,75 +1252,44 @@ function mountThumbnail(campaign){
   el.appendChild(iframe);
 }
 
-function showIterableCampaign(campId){
-  const data = window._iterableJourneyData;
-  if(!data) return;
-  let target = null;
-  (data.journeys||[]).forEach(function(j){
-    (j.campaigns||[]).forEach(function(c){ if(c.id===campId) target = c; });
-  });
-  if(!target) return;
+let _iterExpanded = {}; // journeyId -> campaignId currently expanded inline, or undefined
 
-  const existing = document.getElementById('iter-modal');
-  if(existing) existing.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'iter-modal';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,17,51,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px;';
-  overlay.onclick = function(e){ if(e.target===overlay) closeIterableModal(); };
-
-  const card = document.createElement('div');
-  card.style.cssText = 'background:#fff;border-radius:12px;max-width:90vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;';
-
-  const hdr = document.createElement('div');
-  hdr.style.cssText = 'padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;';
-  hdr.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--text);">'+esc(target.name)+'</div>'
-    + '<button onclick="closeIterableModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);line-height:1;">&times;</button>';
-  card.appendChild(hdr);
-
-  const body = document.createElement('div');
-  body.style.cssText = 'flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:16px;min-height:200px;min-width:300px;';
-  card.appendChild(body);
-
-  if(target.content && target.content.html){
-    const REF_WIDTH = 600;
-    const iframe = document.createElement('iframe');
-    // "allow-same-origin" (no "allow-scripts") lets the parent measure the
-    // rendered content's real height so it can be scaled to fit the screen
-    // without scrolling — the email's own scripts, if any, still never run.
-    iframe.setAttribute('sandbox', 'allow-same-origin');
-    iframe.style.cssText = 'border:none;width:'+REF_WIDTH+'px;height:400px;transform-origin:top left;display:block;';
-    iframe.srcdoc = target.content.html;
-    iframe.onload = function(){
-      try{
-        const doc = iframe.contentDocument;
-        const naturalH = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0) || 600;
-        iframe.style.height = naturalH + 'px';
-        const availW = window.innerWidth * 0.86;
-        const availH = window.innerHeight * 0.76;
-        const scale = Math.min(availW / REF_WIDTH, availH / naturalH, 1);
-        iframe.style.transform = 'scale('+scale+')';
-        body.style.width = (REF_WIDTH*scale) + 'px';
-        body.style.height = (naturalH*scale) + 'px';
-      } catch(err){
-        // Measurement blocked for some reason — fall back to a fixed-size,
-        // scrollable frame rather than leaving it broken.
-        iframe.style.height = '600px';
-        body.style.overflow = 'auto';
-      }
-    };
-    body.appendChild(iframe);
-  } else {
-    body.innerHTML = '<div style="padding:24px;color:var(--muted);font-size:13px;">No renderable content for this campaign.</div>';
-  }
-
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
+function toggleIterableCampaign(campId, journeyId){
+  _iterExpanded[journeyId] = (_iterExpanded[journeyId] === campId) ? null : campId;
+  renderIterableJourneys();
 }
 
-function closeIterableModal(){
-  const el = document.getElementById('iter-modal');
-  if(el) el.remove();
+function mountExpandedInline(campaign, journeyId){
+  const body = document.getElementById('iter-expand-body-'+journeyId);
+  if(!body) return;
+  const htmlContent = campaign.content && campaign.content.html;
+  if(!htmlContent){
+    body.innerHTML = '<div style="padding:24px;color:var(--muted);font-size:13px;">No renderable content for this campaign.</div>';
+    return;
+  }
+  const REF_WIDTH = 600;
+  const iframe = document.createElement('iframe');
+  // "allow-same-origin" (no "allow-scripts") lets this page measure the
+  // rendered content's real height so it can be scaled cleanly in place —
+  // the email's own scripts, if any, still never run.
+  iframe.setAttribute('sandbox', 'allow-same-origin');
+  iframe.style.cssText = 'border:none;width:'+REF_WIDTH+'px;height:400px;transform-origin:top left;display:block;';
+  iframe.srcdoc = htmlContent;
+  iframe.onload = function(){
+    try{
+      const doc = iframe.contentDocument;
+      const naturalH = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0) || 600;
+      iframe.style.height = naturalH + 'px';
+      const availW = body.clientWidth || REF_WIDTH;
+      const scale = Math.min(availW / REF_WIDTH, 1);
+      iframe.style.transform = 'scale('+scale+')';
+      body.style.height = (naturalH*scale) + 'px';
+    } catch(err){
+      iframe.style.height = '600px';
+      body.style.overflow = 'auto';
+    }
+  };
+  body.appendChild(iframe);
 }
 
 function renderJourneys(){

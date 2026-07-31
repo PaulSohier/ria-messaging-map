@@ -59,6 +59,7 @@ function pickSafeCampaign(c) {
     name: c.name,
     channel: c.messageMedium, // "Email" | "Push" | "InApp" | "SMS"
     templateId: c.templateId,
+    labels: c.labels || [],
   };
 }
 
@@ -68,6 +69,7 @@ function pickSafeTemplateContent(medium, tpl) {
     return {
       subject: tpl.subject || null,
       preview: stripHtml(tpl.html || tpl.plainText || '').slice(0, 240) || null,
+      html: tpl.html || null,
     };
   }
   if (medium === 'Push') {
@@ -78,7 +80,10 @@ function pickSafeTemplateContent(medium, tpl) {
   }
   if (medium === 'InApp') {
     const body = tpl.htmlContent || tpl.html || null;
-    return { preview: stripHtml(body || '').slice(0, 240) || null };
+    return {
+      preview: stripHtml(body || '').slice(0, 240) || null,
+      html: body || null,
+    };
   }
   return null;
 }
@@ -168,8 +173,17 @@ async function main() {
       campaignsWithContent.push({ ...safeCampaign, content });
     }
 
+    // Derive a journey-level category from whatever label appears most often
+    // across its campaigns (e.g. "Transactional", "Growth", "Post-transactional").
+    const labelCounts = {};
+    campaignsWithContent.forEach(c => {
+      (c.labels || []).forEach(l => { labelCounts[l] = (labelCounts[l] || 0) + 1; });
+    });
+    const category = Object.keys(labelCounts).sort((a, b) => labelCounts[b] - labelCounts[a])[0] || 'Uncategorized';
+
     results.push({
       ...pickSafeJourney(journey),
+      category,
       campaigns: campaignsWithContent,
     });
   }

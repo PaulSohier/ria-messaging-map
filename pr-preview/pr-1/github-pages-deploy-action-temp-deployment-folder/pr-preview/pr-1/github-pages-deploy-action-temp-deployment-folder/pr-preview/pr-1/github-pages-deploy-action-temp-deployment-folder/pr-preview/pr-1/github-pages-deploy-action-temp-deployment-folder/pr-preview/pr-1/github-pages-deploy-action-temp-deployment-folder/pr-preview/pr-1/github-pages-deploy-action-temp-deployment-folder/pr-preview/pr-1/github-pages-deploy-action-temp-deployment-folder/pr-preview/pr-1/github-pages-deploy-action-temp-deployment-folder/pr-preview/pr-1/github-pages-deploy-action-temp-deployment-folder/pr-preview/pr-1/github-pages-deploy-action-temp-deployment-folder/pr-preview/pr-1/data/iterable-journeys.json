@@ -1,6 +1,6 @@
 {
   "source": "iterable-sandbox",
-  "pulledAt": "2026-07-31T18:03:46.563Z",
+  "pulledAt": "2026-07-31T18:12:28.512Z",
   "journeys": [
     {
       "id": 226142,
@@ -16,7 +16,7 @@
           "templateId": 5093529,
           "content": {
             "subject": "Order Number {{ order_number }} - Request for Information",
-            "preview": "96 Ria /* RESET CSS */ table td { border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; } body { font-family: 'Nunito Sans', Arial, sans-serif; font-size: 16px; line-height: 24px; color: #4d4b48; -webki"
+            "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} &nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbs"
           }
         },
         {
@@ -26,7 +26,7 @@
           "templateId": 5464696,
           "content": {
             "subject": "{{{ snippet 'websiteCountry two letter transformation' }}} - Request for Information: {{ order_number }}",
-            "preview": "96 Ria /* RESET CSS */ table td { border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; } body { font-family: 'Nunito Sans', Arial, sans-serif; font-size: 16px; line-height: 24px; color: #4d4b48; -webki"
+            "preview": "96 Ria Your transfer is on it&#x2019;s way to {{destinationCountry}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zw"
           }
         },
         {
@@ -36,7 +36,7 @@
           "templateId": 5532952,
           "content": {
             "subject": "{{{ snippet 'websiteCountry two letter transformation' }}} - Request for Information: {{transactionId}}",
-            "preview": "96 Ria /* RESET CSS */ table td { border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; } body { font-family: 'Nunito Sans', Arial, sans-serif; font-size: 16px; line-height: 24px; color: #4d4b48; -webki"
+            "preview": "96 Ria Your transfer is on it&#x2019;s way to {{destinationCountry}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zw"
           }
         },
         {
@@ -46,7 +46,7 @@
           "templateId": 5533439,
           "content": {
             "subject": "{{{ snippet 'locale country transformation' }}} - Request for Information: {{transactionId}}",
-            "preview": "96 Ria /* RESET CSS */ table td { border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; } body { font-family: 'Nunito Sans', Arial, sans-serif; font-size: 16px; line-height: 24px; color: #4d4b48; -webki"
+            "preview": "96 Ria Your transfer is on it&#x2019;s way to {{destinationCountry}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zw"
           }
         },
         {
@@ -56,7 +56,7 @@
           "templateId": 5546544,
           "content": {
             "subject": "{{{ snippet 'locale country transformation' }}} - Request for Information: {{transactionId}}",
-            "preview": "96 Ria /* RESET CSS */ table td { border-collapse: collapse; border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; } body { font-family: 'Nunito Sans', Arial, sans-serif; font-size: 16px; line-height: 24px; color: #4d4b48; -webki"
+            "preview": "96 Ria Your transfer is on it&#x2019;s way to {{destinationCountry}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zw"
           }
         }
       ]
