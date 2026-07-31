@@ -170,8 +170,19 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 .msg-share-btn{position:absolute;top:6px;right:6px;background:none;border:none;cursor:pointer;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 7px;border-radius:5px;color:var(--hint);opacity:.6;transition:opacity .15s,background .15s;line-height:1;}
 .msg-share-btn:hover{opacity:1;background:var(--purple-bg);color:var(--purple);}
 
-.iter-camp-card{padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;color:var(--text);transition:background .15s,border-color .15s;}
-.iter-camp-card:hover{background:var(--purple-bg);border-color:var(--purple);}
+.iter-category{margin-bottom:22px;}
+.iter-category-hdr{display:flex;align-items:center;gap:14px;cursor:pointer;padding:6px 0 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);user-select:none;}
+.iter-category-line{flex:1;height:2px;background:var(--border-mid);}
+.iter-chevron{font-size:10px;color:var(--hint);flex-shrink:0;}
+
+.iter-journey-tile{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:12px;}
+.iter-journey-hdr{display:flex;align-items:flex-start;justify-content:space-between;cursor:pointer;gap:12px;user-select:none;}
+
+.iter-thumbs-row{gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap;}
+.iter-thumb{width:96px;flex-shrink:0;cursor:pointer;}
+.iter-thumb-inner{width:96px;height:128px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff;position:relative;transition:border-color .15s;}
+.iter-thumb:hover .iter-thumb-inner{border-color:var(--purple);}
+.iter-thumb-label{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.3;max-height:2.6em;overflow:hidden;text-align:center;}
 .msg-item.jump-highlight{outline:2px solid var(--orange);}
 .msg-item.is-draft{opacity:.48;}
 .msg-item.live-card{cursor:pointer;transition:border-color .15s;}
@@ -1109,6 +1120,9 @@ function renderGlobalCostTwilio(){
 }
 
 /* ── DIGITAL JOURNEYS (Iterable-sourced) ── */
+let _iterCatState = {};   // categoryName -> bool (open/closed)
+let _iterJourneyState = {}; // journeyId -> bool (open/closed)
+
 async function renderIterableJourneys(){
   const container = document.getElementById('p2-content');
   container.innerHTML = '<div style="padding:60px;text-align:center;color:var(--muted);font-size:13px;">Loading journeys…</div>';
@@ -1132,35 +1146,86 @@ async function renderIterableJourneys(){
     return;
   }
 
-  let html = '<div style="max-width:900px;width:100%;">';
+  // Group journeys by category (derived from campaign labels during the pull)
+  const byCategory = {};
   journeys.forEach(function(j){
-    const byChannel = {};
-    (j.campaigns||[]).forEach(function(c){
-      (byChannel[c.channel] = byChannel[c.channel] || []).push(c);
-    });
+    const cat = j.category || 'Uncategorized';
+    (byCategory[cat] = byCategory[cat] || []).push(j);
+  });
 
-    html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:20px;">';
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">';
-    html += '<div style="font-size:16px;font-weight:700;color:var(--text);">'+esc(j.name)+'</div>';
-    html += '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 10px;border-radius:20px;background:var(--purple-bg);color:var(--purple);">via Iterable</span>';
-    html += '</div>';
-    html += '<div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Triggered by: '+esc((j.triggerEventNames||[]).join(', '))+'</div>';
+  let html = '<div style="max-width:960px;width:100%;">';
+  Object.keys(byCategory).sort().forEach(function(cat){
+    const isOpen = _iterCatState[cat] !== false; // default open
+    html += '<div class="iter-category">';
+    html += '<div class="iter-category-hdr" onclick="toggleIterCategory(\''+cat+'\')">'
+      + '<span>'+esc(cat)+'</span><span class="iter-category-line"></span>'
+      + '<span class="iter-chevron">'+(isOpen?'&#9662;':'&#9656;')+'</span>'
+      + '</div>';
+    html += '<div class="iter-category-body" style="display:'+(isOpen?'block':'none')+'">';
 
-    Object.keys(byChannel).forEach(function(ch){
-      const camps = byChannel[ch];
-      html += '<div style="margin-bottom:14px;">';
-      html += '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px;">'+esc(ch)+' · '+camps.length+' campaign'+(camps.length!==1?'s':'')+'</div>';
-      html += '<div style="display:flex;flex-direction:column;gap:6px;">';
-      camps.forEach(function(c){
-        html += '<div class="iter-camp-card" onclick="showIterableCampaign('+c.id+')">'+esc(c.name)+'</div>';
+    byCategory[cat].forEach(function(j){
+      const jOpen = !!_iterJourneyState[j.id];
+      const totalCamps = (j.campaigns||[]).length;
+      const byChannel = {};
+      (j.campaigns||[]).forEach(function(c){ (byChannel[c.channel] = byChannel[c.channel] || []).push(c); });
+      const chSummary = Object.keys(byChannel).map(function(ch){ return ch+' · '+byChannel[ch].length; }).join(' · ');
+
+      html += '<div class="iter-journey-tile">';
+      html += '<div class="iter-journey-hdr" onclick="toggleIterJourney('+j.id+')">';
+      html += '<div><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:700;color:var(--text);">'+esc(j.name)+'</span>'
+        + '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:20px;background:var(--purple-bg);color:var(--purple);">via Iterable</span></div>'
+        + '<div style="font-size:11px;color:var(--muted);margin-top:3px;">Triggered by: '+esc((j.triggerEventNames||[]).join(', '))+'</div>'
+        + '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+esc(chSummary)+' · '+totalCamps+' campaign'+(totalCamps!==1?'s':'')+'</div></div>';
+      html += '<span class="iter-chevron">'+(jOpen?'&#9662;':'&#9656;')+'</span>';
+      html += '</div>';
+
+      html += '<div class="iter-thumbs-row" style="display:'+(jOpen?'flex':'none')+'">';
+      (j.campaigns||[]).forEach(function(c){
+        html += '<div class="iter-thumb" onclick="showIterableCampaign('+c.id+')" title="'+esc(c.name)+'">'
+          + '<div class="iter-thumb-inner" id="iter-thumb-'+c.id+'"></div>'
+          + '<div class="iter-thumb-label">'+esc(c.name)+'</div>'
+          + '</div>';
       });
-      html += '</div></div>';
+      html += '</div>'; // thumbs-row
+      html += '</div>'; // journey-tile
     });
 
-    html += '</div>';
+    html += '</div>'; // category-body
+    html += '</div>'; // category
   });
   html += '</div>';
   container.innerHTML = html;
+
+  // Populate thumbnail previews (scaled-down iframes) for any open journey
+  journeys.forEach(function(j){
+    if(!_iterJourneyState[j.id]) return;
+    (j.campaigns||[]).forEach(function(c){ mountThumbnail(c); });
+  });
+}
+
+function toggleIterCategory(cat){
+  _iterCatState[cat] = !(_iterCatState[cat] !== false);
+  renderIterableJourneys();
+}
+
+function toggleIterJourney(journeyId){
+  _iterJourneyState[journeyId] = !_iterJourneyState[journeyId];
+  renderIterableJourneys();
+}
+
+function mountThumbnail(campaign){
+  const el = document.getElementById('iter-thumb-'+campaign.id);
+  if(!el) return;
+  const htmlContent = campaign.content && campaign.content.html;
+  if(!htmlContent){
+    el.innerHTML = '<div style="font-size:9px;color:var(--hint);padding:6px;text-align:center;">No preview</div>';
+    return;
+  }
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('sandbox', ''); // fully isolated — thumbnails don't need measurement
+  iframe.style.cssText = 'width:375px;height:500px;border:none;transform:scale(0.256);transform-origin:top left;pointer-events:none;';
+  iframe.srcdoc = htmlContent;
+  el.appendChild(iframe);
 }
 
 function showIterableCampaign(campId){
@@ -1175,22 +1240,57 @@ function showIterableCampaign(campId){
   const existing = document.getElementById('iter-modal');
   if(existing) existing.remove();
 
-  const hasHtml = target.content && target.content.html;
-  const bodyHtml = hasHtml
-    ? '<iframe sandbox="" style="border:none;width:100%;flex:1;min-height:420px;" srcdoc="'+esc(target.content.html)+'"></iframe>'
-    : '<div style="padding:24px;color:var(--muted);font-size:13px;">No renderable content for this campaign.</div>';
-
   const overlay = document.createElement('div');
   overlay.id = 'iter-modal';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,17,51,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px;';
   overlay.onclick = function(e){ if(e.target===overlay) closeIterableModal(); };
-  overlay.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;">'
-    + '<div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">'
-    + '<div style="font-size:13px;font-weight:700;color:var(--text);">'+esc(target.name)+'</div>'
-    + '<button onclick="closeIterableModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);line-height:1;">&times;</button>'
-    + '</div>'
-    + bodyHtml
-    + '</div>';
+
+  const card = document.createElement('div');
+  card.style.cssText = 'background:#fff;border-radius:12px;max-width:90vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;';
+
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;';
+  hdr.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--text);">'+esc(target.name)+'</div>'
+    + '<button onclick="closeIterableModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);line-height:1;">&times;</button>';
+  card.appendChild(hdr);
+
+  const body = document.createElement('div');
+  body.style.cssText = 'flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:16px;min-height:200px;min-width:300px;';
+  card.appendChild(body);
+
+  if(target.content && target.content.html){
+    const REF_WIDTH = 600;
+    const iframe = document.createElement('iframe');
+    // "allow-same-origin" (no "allow-scripts") lets the parent measure the
+    // rendered content's real height so it can be scaled to fit the screen
+    // without scrolling — the email's own scripts, if any, still never run.
+    iframe.setAttribute('sandbox', 'allow-same-origin');
+    iframe.style.cssText = 'border:none;width:'+REF_WIDTH+'px;height:400px;transform-origin:top left;display:block;';
+    iframe.srcdoc = target.content.html;
+    iframe.onload = function(){
+      try{
+        const doc = iframe.contentDocument;
+        const naturalH = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0) || 600;
+        iframe.style.height = naturalH + 'px';
+        const availW = window.innerWidth * 0.86;
+        const availH = window.innerHeight * 0.76;
+        const scale = Math.min(availW / REF_WIDTH, availH / naturalH, 1);
+        iframe.style.transform = 'scale('+scale+')';
+        body.style.width = (REF_WIDTH*scale) + 'px';
+        body.style.height = (naturalH*scale) + 'px';
+      } catch(err){
+        // Measurement blocked for some reason — fall back to a fixed-size,
+        // scrollable frame rather than leaving it broken.
+        iframe.style.height = '600px';
+        body.style.overflow = 'auto';
+      }
+    };
+    body.appendChild(iframe);
+  } else {
+    body.innerHTML = '<div style="padding:24px;color:var(--muted);font-size:13px;">No renderable content for this campaign.</div>';
+  }
+
+  overlay.appendChild(card);
   document.body.appendChild(overlay);
 }
 
