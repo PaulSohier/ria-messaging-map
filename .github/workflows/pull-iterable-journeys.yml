@@ -1,0 +1,38 @@
+name: Pull Iterable journey data (test)
+
+on:
+  workflow_dispatch:
+    inputs:
+      journey_ids:
+        description: 'Comma-separated Iterable journey IDs to pull'
+        required: true
+        default: '226142'
+
+jobs:
+  pull-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch and shape Iterable data
+        env:
+          ITERABLE_API_KEY: ${{ secrets.ITERABLE_SANDBOX_API_KEY }}
+          JOURNEY_IDS: ${{ github.event.inputs.journey_ids }}
+        run: node scripts/pull-iterable-journeys.js
+
+      - name: Show output for review
+        run: cat data/iterable-journeys.json
+
+      - name: Commit updated data file
+        run: |
+          git config user.name "iterable-sync-bot"
+          git config user.email "actions@github.com"
+          git add data/iterable-journeys.json
+          git diff --staged --quiet || git commit -m "Update Iterable journey data (manual run)"
+          git push
