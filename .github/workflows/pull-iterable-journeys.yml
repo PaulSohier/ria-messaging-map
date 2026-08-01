@@ -1,11 +1,13 @@
 name: Pull Iterable journey data (test)
+
 on:
   workflow_dispatch:
     inputs:
       journey_ids:
         description: 'Comma-separated Iterable journey IDs to pull'
         required: true
-        default: '226142,397134,687714,591526'
+        default: '226142,397134,687714'
+
 jobs:
   pull-data:
     runs-on: ubuntu-latest
@@ -13,16 +15,20 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
       - name: Fetch and shape Iterable data
         env:
           ITERABLE_API_KEY: ${{ secrets.ITERABLE_SANDBOX_API_KEY }}
           JOURNEY_IDS: ${{ github.event.inputs.journey_ids }}
         run: node scripts/pull-iterable-journeys.js
+
       - name: Show output for review
         run: cat data/iterable-journeys.json
+
       - name: Commit updated data file
         run: |
           git config user.name "iterable-sync-bot"
