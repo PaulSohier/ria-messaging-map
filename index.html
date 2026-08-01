@@ -1374,15 +1374,16 @@ function mountExpandedInline(campaign, journeyId){
       const doc = iframe.contentDocument;
       const naturalH = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0) || 600;
       iframe.style.height = naturalH + 'px';
-      const availW = (body.clientWidth || REF_WIDTH) - 8;
       const availH = window.innerHeight * 0.7;
       const MIN_READABLE_SCALE = 0.55; // never shrink further than this — scroll instead
       // Prefer shrinking to fit entirely on screen (the nice, no-scroll case for
       // normal-length messages), but never go below a readable size — past that
       // point it's better to scroll than to squash the content illegibly small.
-      const fitScale = Math.min(availW / REF_WIDTH, availH / naturalH, 1);
+      // (Width is not a factor here — the panel is always comfortably wider
+      // than REF_WIDTH by design, so height is the only real constraint.)
+      const fitScale = Math.min(availH / naturalH, 1);
       const neededFlooring = fitScale < MIN_READABLE_SCALE;
-      const scale = Math.min(Math.max(fitScale, MIN_READABLE_SCALE), availW / REF_WIDTH, 1);
+      const scale = Math.max(fitScale, MIN_READABLE_SCALE);
       iframe.style.transform = 'scale('+scale+')';
       body.style.width = '100%';
       body.style.height = (naturalH*scale) + 'px';
