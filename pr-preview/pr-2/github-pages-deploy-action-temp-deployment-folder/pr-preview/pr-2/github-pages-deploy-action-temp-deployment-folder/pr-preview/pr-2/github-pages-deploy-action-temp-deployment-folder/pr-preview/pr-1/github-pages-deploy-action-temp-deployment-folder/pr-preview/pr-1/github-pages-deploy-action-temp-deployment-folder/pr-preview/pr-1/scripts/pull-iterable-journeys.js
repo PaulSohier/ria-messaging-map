@@ -23,7 +23,7 @@
 
 const API_BASE = 'https://api.iterable.com/api';
 const API_KEY = process.env.ITERABLE_API_KEY;
-const JOURNEY_IDS = (process.env.JOURNEY_IDS || '226142,397134,687714,591526')
+const JOURNEY_IDS = (process.env.JOURNEY_IDS || '226142')
   .split(',')
   .map(s => parseInt(s.trim(), 10))
   .filter(n => !Number.isNaN(n));
@@ -73,10 +73,10 @@ function pickSafeTemplateContent(medium, tpl) {
     };
   }
   if (medium === 'Push') {
-    return {
-      title: tpl.title || null,
-      message: tpl.message || null,
-    };
+    // Iterable's push template payload shape varies by account config;
+    // check a couple of likely locations defensively.
+    const body = tpl.messageBody || tpl?.pushMessagePayload?.alert || null;
+    return { preview: (body || '').toString().slice(0, 240) || null };
   }
   if (medium === 'InApp') {
     const body = tpl.htmlContent || tpl.html || null;

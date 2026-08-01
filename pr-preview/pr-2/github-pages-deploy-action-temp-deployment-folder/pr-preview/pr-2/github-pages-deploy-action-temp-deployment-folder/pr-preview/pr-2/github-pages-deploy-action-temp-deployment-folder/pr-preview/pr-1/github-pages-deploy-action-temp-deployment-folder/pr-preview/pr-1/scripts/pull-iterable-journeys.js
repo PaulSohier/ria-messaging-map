@@ -73,10 +73,10 @@ function pickSafeTemplateContent(medium, tpl) {
     };
   }
   if (medium === 'Push') {
-    return {
-      title: tpl.title || null,
-      message: tpl.message || null,
-    };
+    // Iterable's push template payload shape varies by account config;
+    // check a couple of likely locations defensively.
+    const body = tpl.messageBody || tpl?.pushMessagePayload?.alert || null;
+    return { preview: (body || '').toString().slice(0, 240) || null };
   }
   if (medium === 'InApp') {
     const body = tpl.htmlContent || tpl.html || null;
