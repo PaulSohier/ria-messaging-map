@@ -1367,12 +1367,17 @@ function mountExpandedInline(campaign, journeyId){
   // rendered content's real height so it can be scaled cleanly in place —
   // the email's own scripts, if any, still never run.
   iframe.setAttribute('sandbox', 'allow-same-origin');
-  iframe.style.cssText = 'border:none;width:'+REF_WIDTH+'px;height:400px;transform-origin:top center;display:block;margin:0 auto;';
+  iframe.setAttribute('scrolling', 'no');
+  iframe.style.cssText = 'border:none;width:'+REF_WIDTH+'px;height:400px;transform-origin:top center;display:block;margin:0 auto;overflow:hidden;';
   iframe.srcdoc = htmlContent;
-  iframe.onload = function(){
+  let sized = false;
+  function applySize(){
+    if(sized) return;
     try{
       const doc = iframe.contentDocument;
       const naturalH = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0) || 600;
+      if(!naturalH) return; // not actually loaded yet — let the next attempt handle it
+      sized = true;
       iframe.style.height = naturalH + 'px';
       const availH = window.innerHeight * 0.7;
       const MIN_READABLE_SCALE = 0.55; // never shrink further than this — scroll instead
@@ -1392,10 +1397,16 @@ function mountExpandedInline(campaign, journeyId){
       // styles show a track even when nothing actually overflows.
       body.style.overflowY = neededFlooring ? 'auto' : 'visible';
     } catch(err){
+      sized = true;
       iframe.style.height = '600px';
       body.style.overflowY = 'auto';
     }
-  };
+  }
+  iframe.onload = applySize;
+  // Fallback in case "load" doesn't fire reliably for this srcdoc iframe —
+  // try again shortly after insertion regardless.
+  setTimeout(applySize, 150);
+  setTimeout(applySize, 500);
   body.appendChild(iframe);
 }
 

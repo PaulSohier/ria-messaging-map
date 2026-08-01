@@ -195,7 +195,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 .iter-expanded-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--purple-bg);font-size:12px;font-weight:700;color:var(--purple);}
 .iter-expand-close{background:none;border:1px solid var(--purple);color:var(--purple);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:inherit;}
 .iter-expand-close:hover{background:var(--purple);color:#fff;}
-.iter-expanded-body{padding:16px;overflow-y:auto;overflow-x:hidden;max-height:75vh;display:flex;justify-content:center;width:100%;}
+.iter-expanded-body{padding:16px;overflow-y:hidden;overflow-x:hidden;max-height:75vh;display:flex;justify-content:center;width:100%;}
 .msg-item.jump-highlight{outline:2px solid var(--orange);}
 .msg-item.is-draft{opacity:.48;}
 .msg-item.live-card{cursor:pointer;transition:border-color .15s;}
@@ -1374,16 +1374,25 @@ function mountExpandedInline(campaign, journeyId){
       const doc = iframe.contentDocument;
       const naturalH = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0) || 600;
       iframe.style.height = naturalH + 'px';
-      // Scale by WIDTH ONLY — a long email/in-app message stays at a
-      // genuinely readable size and simply scrolls, rather than shrinking
-      // to the point of being unreadable to force everything to fit.
       const availW = (body.clientWidth || REF_WIDTH) - 8;
-      const scale = Math.min(availW / REF_WIDTH, 1);
+      const availH = window.innerHeight * 0.7;
+      const MIN_READABLE_SCALE = 0.55; // never shrink further than this — scroll instead
+      // Prefer shrinking to fit entirely on screen (the nice, no-scroll case for
+      // normal-length messages), but never go below a readable size — past that
+      // point it's better to scroll than to squash the content illegibly small.
+      const fitScale = Math.min(availW / REF_WIDTH, availH / naturalH, 1);
+      const neededFlooring = fitScale < MIN_READABLE_SCALE;
+      const scale = Math.min(Math.max(fitScale, MIN_READABLE_SCALE), availW / REF_WIDTH, 1);
       iframe.style.transform = 'scale('+scale+')';
       body.style.width = '100%';
       body.style.height = (naturalH*scale) + 'px';
+      // Only show a scrollbar if the content genuinely didn't fit — never
+      // rely on CSS overflow:auto here, since some browsers/OS scrollbar
+      // styles show a track even when nothing actually overflows.
+      body.style.overflowY = neededFlooring ? 'auto' : 'visible';
     } catch(err){
       iframe.style.height = '600px';
+      body.style.overflowY = 'auto';
     }
   };
   body.appendChild(iframe);
