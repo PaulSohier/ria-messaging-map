@@ -1371,19 +1371,13 @@ function mountExpandedInline(campaign, journeyId){
   iframe.style.cssText = 'border:none;width:'+REF_WIDTH+'px;height:400px;transform-origin:top center;display:block;margin:0 auto;overflow:hidden;';
   iframe.srcdoc = htmlContent;
 
-  const debugEl = document.createElement('div');
-  debugEl.style.cssText = 'position:absolute;top:2px;left:2px;background:#000;color:#0f0;font:10px monospace;padding:4px 6px;z-index:50;white-space:pre;opacity:.85;';
-  debugEl.textContent = 'DEBUG: waiting for load...';
-  body.style.position = 'relative';
-  body.appendChild(debugEl);
-
   let sized = false;
-  function applySize(source){
+  function applySize(){
     if(sized) return;
     try{
       const doc = iframe.contentDocument;
       const naturalH = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0) || 600;
-      if(!naturalH){ debugEl.textContent = 'DEBUG['+source+']: naturalH was 0, waiting...'; return; }
+      if(!naturalH) return; // not actually loaded yet — let the next attempt handle it
       sized = true;
       iframe.style.height = naturalH + 'px';
       const availH = window.innerHeight * 0.7;
@@ -1399,23 +1393,23 @@ function mountExpandedInline(campaign, journeyId){
       iframe.style.transform = 'scale('+scale+')';
       body.style.width = '100%';
       body.style.height = (naturalH*scale) + 'px';
-      // Only show a scrollbar if the content genuinely didn't fit — never
-      // rely on CSS overflow:auto here, since some browsers/OS scrollbar
-      // styles show a track even when nothing actually overflows.
-      body.style.overflowY = neededFlooring ? 'auto' : 'visible';
-      debugEl.textContent = 'DEBUG['+source+']: naturalH='+naturalH+' availH='+Math.round(availH)+' fitScale='+fitScale.toFixed(3)+' scale='+scale.toFixed(3)+' neededFlooring='+neededFlooring+' bodyH='+Math.round(naturalH*scale)+' overflowY='+body.style.overflowY;
+      // Only show a scrollbar if the content genuinely didn't fit. Both axes
+      // must be set together — mixing overflow-x:hidden with overflow-y:visible
+      // makes browsers silently convert "visible" to "auto" per the CSS spec,
+      // which was the actual cause of the scrollbar always appearing before.
+      if(neededFlooring){ body.style.overflowY = 'auto'; body.style.overflowX = 'hidden'; }
+      else { body.style.overflow = 'visible'; }
     } catch(err){
       sized = true;
       iframe.style.height = '600px';
       body.style.overflowY = 'auto';
-      debugEl.textContent = 'DEBUG['+source+']: ERROR caught: '+err.message;
     }
   }
-  iframe.onload = function(){ applySize('onload'); };
+  iframe.onload = applySize;
   // Fallback in case "load" doesn't fire reliably for this srcdoc iframe —
   // try again shortly after insertion regardless.
-  setTimeout(function(){ applySize('t150'); }, 150);
-  setTimeout(function(){ applySize('t500'); }, 500);
+  setTimeout(applySize, 150);
+  setTimeout(applySize, 500);
   setTimeout(applySize, 150);
   setTimeout(applySize, 500);
   body.appendChild(iframe);

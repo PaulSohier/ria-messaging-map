@@ -1,0 +1,65 @@
+{
+  "source": "iterable-sandbox",
+  "pulledAt": "2026-07-31T18:12:28.512Z",
+  "journeys": [
+    {
+      "id": 226142,
+      "name": "Transaction On Hold: Staging Test",
+      "triggerEventNames": [
+        "Transaction On Hold"
+      ],
+      "campaigns": [
+        {
+          "id": 3736474,
+          "name": "2202 Transaction On  Hold Test",
+          "channel": "Email",
+          "templateId": 5093529,
+          "content": {
+            "subject": "Order Number {{ order_number }} - Request for Information",
+            "preview": "96 Ria Your transfer is on it’s way to {{destinationCountry}} &nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbsp;‌&nbs"
+          }
+        },
+        {
+          "id": 4013556,
+          "name": "211228 - Compliance Hold - Information Request",
+          "channel": "Email",
+          "templateId": 5464696,
+          "content": {
+            "subject": "{{{ snippet 'websiteCountry two letter transformation' }}} - Request for Information: {{ order_number }}",
+            "preview": "96 Ria Your transfer is on it&#x2019;s way to {{destinationCountry}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zw"
+          }
+        },
+        {
+          "id": 4064415,
+          "name": "Transaction on Hold",
+          "channel": "Email",
+          "templateId": 5532952,
+          "content": {
+            "subject": "{{{ snippet 'websiteCountry two letter transformation' }}} - Request for Information: {{transactionId}}",
+            "preview": "96 Ria Your transfer is on it&#x2019;s way to {{destinationCountry}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zw"
+          }
+        },
+        {
+          "id": 4064809,
+          "name": "Transaction on Hold",
+          "channel": "Email",
+          "templateId": 5533439,
+          "content": {
+            "subject": "{{{ snippet 'locale country transformation' }}} - Request for Information: {{transactionId}}",
+            "preview": "96 Ria Your transfer is on it&#x2019;s way to {{destinationCountry}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zw"
+          }
+        },
+        {
+          "id": 4074238,
+          "name": "Transaction on Hold",
+          "channel": "Email",
+          "templateId": 5546544,
+          "content": {
+            "subject": "{{{ snippet 'locale country transformation' }}} - Request for Information: {{transactionId}}",
+            "preview": "96 Ria Your transfer is on it&#x2019;s way to {{destinationCountry}} &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zw"
+          }
+        }
+      ]
+    }
+  ]
+}
