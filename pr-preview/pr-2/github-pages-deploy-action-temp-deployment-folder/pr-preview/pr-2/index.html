@@ -1195,7 +1195,8 @@ async function renderIterableJourneys(){
 
       html += '<div class="iter-journey-tile">';
       html += '<div class="iter-journey-hdr" onclick="toggleIterJourney('+j.id+')">';
-      html += '<div><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:700;color:var(--text);">'+esc(j.name)+'</span>'+journeyStatusBadge(j)+'</div>'
+      html += '<div><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:700;color:var(--text);">'+esc(j.name)+'</span>'+journeyStatusBadge(j)
+        + '<a href="https://app.iterable.com/workflows/'+j.id+'/edit?workflowType=Published&mode=beta" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--purple);text-decoration:none;">Open in Iterable &#8594;</a></div>'
         + '<div style="font-size:11px;color:var(--muted);margin-top:3px;">Triggered by: '+esc((j.triggerEventNames||[]).join(', '))+'</div>'
         + '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+esc(chSummary)+'</div></div>';
       html += '<span class="iter-chevron" id="iter-j-chev-'+j.id+'">'+(jOpen?'&#9662;':'&#9656;')+'</span>';
@@ -1301,10 +1302,11 @@ function campaignStatusBadge(state){
 
 function pushNotificationHtml(title, message){
   return '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#EDEDF2;padding:8px;">'
-    + '<div style="width:100%;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-radius:13px;padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,.15);font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;text-align:center;">'
-    + '<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:3px;">'
+    + '<div style="width:100%;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-radius:13px;padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,.15);font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;">'
+    + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'
     + '<div style="width:16px;height:16px;border-radius:4px;background:var(--purple);flex-shrink:0;"></div>'
     + '<span style="font-size:10px;font-weight:600;color:#6b6b70;text-transform:uppercase;letter-spacing:.02em;">Ria</span>'
+    + '<span style="font-size:10px;color:#8a8a8e;margin-left:auto;">now</span>'
     + '</div>'
     + '<div style="font-size:13px;font-weight:700;color:#000;line-height:1.3;">'+esc(title||'')+'</div>'
     + '<div style="font-size:13px;color:#000;line-height:1.3;margin-top:1px;">'+esc(message||'')+'</div>'
