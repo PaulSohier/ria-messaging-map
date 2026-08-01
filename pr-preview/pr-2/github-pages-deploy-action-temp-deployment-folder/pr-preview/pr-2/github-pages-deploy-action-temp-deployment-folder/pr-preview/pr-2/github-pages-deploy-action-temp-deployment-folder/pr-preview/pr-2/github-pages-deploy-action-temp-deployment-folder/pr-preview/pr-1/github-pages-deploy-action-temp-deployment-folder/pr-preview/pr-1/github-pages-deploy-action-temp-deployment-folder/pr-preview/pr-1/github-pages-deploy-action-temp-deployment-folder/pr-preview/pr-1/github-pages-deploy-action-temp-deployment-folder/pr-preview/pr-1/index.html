@@ -174,27 +174,23 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 .iter-category{margin-bottom:22px;}
 .iter-category-hdr{display:flex;align-items:center;gap:14px;cursor:pointer;padding:6px 0 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);user-select:none;}
 .iter-category-line{flex:1;height:2px;background:var(--border-mid);}
-.iter-chevron{font-size:10px;color:var(--hint);flex-shrink:0;transition:transform .25s ease;}
-.iter-category-body{max-height:0;overflow:hidden;opacity:0;transition:max-height .4s cubic-bezier(.4,0,.2,1),opacity .3s ease;}
-.iter-category-body.open{max-height:8000px;opacity:1;}
+.iter-chevron{font-size:10px;color:var(--hint);flex-shrink:0;}
 
 .iter-journey-tile{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:12px;}
 .iter-journey-hdr{display:flex;align-items:flex-start;justify-content:space-between;cursor:pointer;gap:12px;user-select:none;}
 
-.iter-thumbs-row{gap:12px;flex-wrap:wrap;display:flex;max-height:0;overflow:hidden;opacity:0;margin-top:0;padding-top:0;border-top:1px solid transparent;transition:max-height .35s cubic-bezier(.4,0,.2,1),opacity .25s ease,margin-top .35s ease,padding-top .35s ease,border-color .35s ease;}
-.iter-thumbs-row.open{max-height:400px;opacity:1;margin-top:14px;padding-top:14px;border-top-color:var(--border);}
+.iter-thumbs-row{gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap;}
 .iter-thumb{width:96px;flex-shrink:0;cursor:pointer;}
 .iter-thumb-inner{width:96px;height:128px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff;position:relative;transition:border-color .15s;}
 .iter-thumb:hover .iter-thumb-inner{border-color:var(--purple);}
 .iter-thumb-label{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.3;max-height:2.6em;overflow:hidden;text-align:center;}
 .iter-thumb-active .iter-thumb-inner{border-color:var(--purple);border-width:2px;}
 
-.iter-expanded-panel{max-height:0;overflow:hidden;opacity:0;border-radius:8px;background:#fff;margin-top:0;border:1px solid transparent;transition:max-height .45s cubic-bezier(.4,0,.2,1),opacity .3s ease,margin-top .35s ease,border-color .35s ease;}
-.iter-expanded-panel.open{max-height:3000px;opacity:1;margin-top:14px;border-color:var(--purple);}
+.iter-expanded-panel{margin-top:14px;border:1px solid var(--purple);border-radius:8px;overflow:hidden;background:#fff;}
 .iter-expanded-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--purple-bg);font-size:12px;font-weight:700;color:var(--purple);}
 .iter-expand-close{background:none;border:1px solid var(--purple);color:var(--purple);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:inherit;}
 .iter-expand-close:hover{background:var(--purple);color:#fff;}
-.iter-expanded-body{padding:16px;overflow:hidden;display:flex;justify-content:center;width:100%;}
+.iter-expanded-body{padding:16px;overflow:hidden;display:flex;justify-content:center;}
 .msg-item.jump-highlight{outline:2px solid var(--orange);}
 .msg-item.is-draft{opacity:.48;}
 .msg-item.live-card{cursor:pointer;transition:border-color .15s;}
@@ -1133,12 +1129,8 @@ function renderGlobalCostTwilio(){
 }
 
 /* ── DIGITAL JOURNEYS (Iterable-sourced) ── */
-// Rendered once per data load; toggling categories/journeys/campaigns after that
-// only flips CSS classes on already-existing elements (never re-renders the
-// whole tree), so max-height transitions can actually animate smoothly.
 let _iterCatState = {};   // categoryName -> bool (open/closed)
 let _iterJourneyState = {}; // journeyId -> bool (open/closed)
-let _iterExpanded = {};   // journeyId -> campaignId currently expanded inline, or null
 
 async function renderIterableJourneys(){
   const container = document.getElementById('p2-content');
@@ -1163,6 +1155,7 @@ async function renderIterableJourneys(){
     return;
   }
 
+  // Group journeys by category (derived from campaign labels during the pull)
   const byCategory = {};
   journeys.forEach(function(j){
     const cat = j.category || 'Uncategorized';
@@ -1173,14 +1166,15 @@ async function renderIterableJourneys(){
   Object.keys(byCategory).sort().forEach(function(cat){
     const isOpen = _iterCatState[cat] !== false; // default open
     html += '<div class="iter-category">';
-    html += '<div class="iter-category-hdr" onclick="toggleIterCategory(\''+cat.replace(/'/g,"\\'")+'\')">'
+    html += '<div class="iter-category-hdr" onclick="toggleIterCategory(\''+cat+'\')">'
       + '<span>'+esc(cat)+'</span><span class="iter-category-line"></span>'
-      + '<span class="iter-chevron" data-cat-chev="'+esc(cat)+'">'+(isOpen?'&#9662;':'&#9656;')+'</span>'
+      + '<span class="iter-chevron">'+(isOpen?'&#9662;':'&#9656;')+'</span>'
       + '</div>';
-    html += '<div class="iter-category-body'+(isOpen?' open':'')+'" data-cat="'+esc(cat)+'">';
+    html += '<div class="iter-category-body" style="display:'+(isOpen?'block':'none')+'">';
 
     byCategory[cat].forEach(function(j){
       const jOpen = !!_iterJourneyState[j.id];
+      const totalCamps = (j.campaigns||[]).length;
       const byChannel = {};
       (j.campaigns||[]).forEach(function(c){ (byChannel[c.channel] = byChannel[c.channel] || []).push(c); });
       const chSummary = Object.keys(byChannel).map(function(ch){
@@ -1194,27 +1188,29 @@ async function renderIterableJourneys(){
         + '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:20px;background:var(--purple-bg);color:var(--purple);">via Iterable</span></div>'
         + '<div style="font-size:11px;color:var(--muted);margin-top:3px;">Triggered by: '+esc((j.triggerEventNames||[]).join(', '))+'</div>'
         + '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+esc(chSummary)+'</div></div>';
-      html += '<span class="iter-chevron" id="iter-j-chev-'+j.id+'">'+(jOpen?'&#9662;':'&#9656;')+'</span>';
+      html += '<span class="iter-chevron">'+(jOpen?'&#9662;':'&#9656;')+'</span>';
       html += '</div>';
 
-      html += '<div class="iter-thumbs-row'+(jOpen?' open':'')+'" id="iter-thumbs-'+j.id+'">';
+      html += '<div class="iter-thumbs-row" style="display:'+(jOpen?'flex':'none')+'">';
       (j.campaigns||[]).forEach(function(c){
         const isExpanded = _iterExpanded[j.id] === c.id;
-        html += '<div class="iter-thumb'+(isExpanded?' iter-thumb-active':'')+'" data-journey="'+j.id+'" data-camp="'+c.id+'" onclick="toggleIterableCampaign('+c.id+','+j.id+')" title="'+esc(c.name)+'">'
+        html += '<div class="iter-thumb'+(isExpanded?' iter-thumb-active':'')+'" onclick="toggleIterableCampaign('+c.id+','+j.id+')" title="'+esc(c.name)+'">'
           + '<div class="iter-thumb-inner" id="iter-thumb-'+c.id+'"></div>'
           + '<div class="iter-thumb-label">'+esc(c.name)+'</div>'
           + '</div>';
       });
       html += '</div>'; // thumbs-row
 
-      const expandedCamp = (j.campaigns||[]).find(function(c){ return c.id === _iterExpanded[j.id]; });
-      html += '<div class="iter-expanded-panel'+(expandedCamp?' open':'')+'" id="iter-expand-panel-'+j.id+'">';
-      if(expandedCamp){
-        html += '<div class="iter-expanded-hdr"><span>'+esc(expandedCamp.name)+'</span>'
-          + '<button onclick="toggleIterableCampaign('+expandedCamp.id+','+j.id+')" class="iter-expand-close">Collapse</button></div>'
-          + '<div class="iter-expanded-body" id="iter-expand-body-'+j.id+'"></div>';
+      if(jOpen && _iterExpanded[j.id]){
+        const expandedCamp = (j.campaigns||[]).find(function(c){ return c.id === _iterExpanded[j.id]; });
+        if(expandedCamp){
+          html += '<div class="iter-expanded-panel">'
+            + '<div class="iter-expanded-hdr"><span>'+esc(expandedCamp.name)+'</span>'
+            + '<button onclick="toggleIterableCampaign('+expandedCamp.id+','+j.id+')" class="iter-expand-close">Collapse</button></div>'
+            + '<div class="iter-expanded-body" id="iter-expand-body-'+j.id+'"></div>'
+            + '</div>';
+        }
       }
-      html += '</div>'; // expanded-panel
 
       html += '</div>'; // journey-tile
     });
@@ -1225,12 +1221,10 @@ async function renderIterableJourneys(){
   html += '</div>';
   container.innerHTML = html;
 
-  // Mount previews only for whatever's already open (first paint / restored state)
+  // Populate thumbnail previews (scaled-down iframes) for any open journey
   journeys.forEach(function(j){
     if(!_iterJourneyState[j.id]) return;
     (j.campaigns||[]).forEach(function(c){ mountThumbnail(c); });
-    const row = document.getElementById('iter-thumbs-'+j.id);
-    if(row) row.dataset.mounted = '1';
     if(_iterExpanded[j.id]){
       const expandedCamp = (j.campaigns||[]).find(function(c){ return c.id === _iterExpanded[j.id]; });
       if(expandedCamp) mountExpandedInline(expandedCamp, j.id);
@@ -1239,37 +1233,18 @@ async function renderIterableJourneys(){
 }
 
 function toggleIterCategory(cat){
-  const currentlyOpen = _iterCatState[cat] !== false;
-  _iterCatState[cat] = !currentlyOpen;
-  const body = document.querySelector('.iter-category-body[data-cat="'+CSS.escape(cat)+'"]');
-  const chev = document.querySelector('.iter-chevron[data-cat-chev="'+CSS.escape(cat)+'"]');
-  if(body) body.classList.toggle('open', !currentlyOpen);
-  if(chev) chev.innerHTML = !currentlyOpen ? '&#9662;' : '&#9656;';
+  _iterCatState[cat] = !(_iterCatState[cat] !== false);
+  renderIterableJourneys();
 }
 
 function toggleIterJourney(journeyId){
-  const willOpen = !_iterJourneyState[journeyId];
-  _iterJourneyState[journeyId] = willOpen;
-  const row = document.getElementById('iter-thumbs-'+journeyId);
-  const chev = document.getElementById('iter-j-chev-'+journeyId);
-  if(row) row.classList.toggle('open', willOpen);
-  if(chev) chev.innerHTML = willOpen ? '&#9662;' : '&#9656;';
-
-  if(willOpen && row && !row.dataset.mounted){
-    const data = window._iterableJourneyData;
-    let journey = null;
-    (data.journeys||[]).forEach(function(j){ if(j.id===journeyId) journey = j; });
-    if(journey){
-      (journey.campaigns||[]).forEach(function(c){ mountThumbnail(c); });
-      row.dataset.mounted = '1';
-    }
-  }
+  _iterJourneyState[journeyId] = !_iterJourneyState[journeyId];
+  renderIterableJourneys();
 }
 
 function mountThumbnail(campaign){
   const el = document.getElementById('iter-thumb-'+campaign.id);
-  if(!el || el.dataset.mounted) return;
-  el.dataset.mounted = '1';
+  if(!el) return;
   const htmlContent = campaign.content && campaign.content.html;
   if(!htmlContent){
     el.innerHTML = '<div style="font-size:9px;color:var(--hint);padding:6px;text-align:center;">No preview</div>';
@@ -1282,31 +1257,11 @@ function mountThumbnail(campaign){
   el.appendChild(iframe);
 }
 
+let _iterExpanded = {}; // journeyId -> campaignId currently expanded inline, or undefined
+
 function toggleIterableCampaign(campId, journeyId){
-  const panel = document.getElementById('iter-expand-panel-'+journeyId);
-  if(!panel) return;
-  const wasExpanded = _iterExpanded[journeyId] === campId;
-  _iterExpanded[journeyId] = wasExpanded ? null : campId;
-
-  document.querySelectorAll('.iter-thumb[data-journey="'+journeyId+'"]').forEach(function(el){
-    el.classList.toggle('iter-thumb-active', !wasExpanded && parseInt(el.dataset.camp,10)===campId);
-  });
-
-  if(wasExpanded){
-    panel.classList.remove('open');
-    return;
-  }
-
-  const data = window._iterableJourneyData;
-  let target = null;
-  (data.journeys||[]).forEach(function(j){ (j.campaigns||[]).forEach(function(c){ if(c.id===campId) target = c; }); });
-  if(!target) return;
-
-  panel.innerHTML = '<div class="iter-expanded-hdr"><span>'+esc(target.name)+'</span>'
-    + '<button onclick="toggleIterableCampaign('+target.id+','+journeyId+')" class="iter-expand-close">Collapse</button></div>'
-    + '<div class="iter-expanded-body" id="iter-expand-body-'+journeyId+'"></div>';
-  panel.classList.add('open');
-  mountExpandedInline(target, journeyId);
+  _iterExpanded[journeyId] = (_iterExpanded[journeyId] === campId) ? null : campId;
+  renderIterableJourneys();
 }
 
 function mountExpandedInline(campaign, journeyId){
@@ -1323,7 +1278,7 @@ function mountExpandedInline(campaign, journeyId){
   // rendered content's real height so it can be scaled cleanly in place —
   // the email's own scripts, if any, still never run.
   iframe.setAttribute('sandbox', 'allow-same-origin');
-  iframe.style.cssText = 'border:none;width:'+REF_WIDTH+'px;height:400px;transform-origin:top center;display:block;margin:0 auto;';
+  iframe.style.cssText = 'border:none;width:'+REF_WIDTH+'px;height:400px;transform-origin:top left;display:block;';
   iframe.srcdoc = htmlContent;
   iframe.onload = function(){
     try{
@@ -1334,9 +1289,8 @@ function mountExpandedInline(campaign, journeyId){
       const availH = Math.max(260, window.innerHeight * 0.6); // always fit on screen, no internal scroll
       const scale = Math.min(availW / REF_WIDTH, availH / naturalH, 1);
       iframe.style.transform = 'scale('+scale+')';
+      body.style.width = (REF_WIDTH*scale) + 'px';
       body.style.height = (naturalH*scale) + 'px';
-      // Deliberately NOT constraining body's width to the scaled content —
-      // that would remove the room "justify-content:center" needs to work with.
     } catch(err){
       iframe.style.height = '600px';
       body.style.overflow = 'auto';

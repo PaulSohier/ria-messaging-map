@@ -23,7 +23,7 @@
 
 const API_BASE = 'https://api.iterable.com/api';
 const API_KEY = process.env.ITERABLE_API_KEY;
-const JOURNEY_IDS = (process.env.JOURNEY_IDS || '226142,397134,687714,591526')
+const JOURNEY_IDS = (process.env.JOURNEY_IDS || '226142')
   .split(',')
   .map(s => parseInt(s.trim(), 10))
   .filter(n => !Number.isNaN(n));
@@ -59,7 +59,6 @@ function pickSafeCampaign(c) {
     name: c.name,
     channel: c.messageMedium, // "Email" | "Push" | "InApp" | "SMS"
     templateId: c.templateId,
-    labels: c.labels || [],
   };
 }
 
@@ -69,21 +68,17 @@ function pickSafeTemplateContent(medium, tpl) {
     return {
       subject: tpl.subject || null,
       preview: stripHtml(tpl.html || tpl.plainText || '').slice(0, 240) || null,
-      html: tpl.html || null,
     };
   }
   if (medium === 'Push') {
-    return {
-      title: tpl.title || null,
-      message: tpl.message || null,
-    };
+    // Iterable's push template payload shape varies by account config;
+    // check a couple of likely locations defensively.
+    const body = tpl.messageBody || tpl?.pushMessagePayload?.alert || null;
+    return { preview: (body || '').toString().slice(0, 240) || null };
   }
   if (medium === 'InApp') {
     const body = tpl.htmlContent || tpl.html || null;
-    return {
-      preview: stripHtml(body || '').slice(0, 240) || null,
-      html: body || null,
-    };
+    return { preview: stripHtml(body || '').slice(0, 240) || null };
   }
   return null;
 }
@@ -173,17 +168,8 @@ async function main() {
       campaignsWithContent.push({ ...safeCampaign, content });
     }
 
-    // Derive a journey-level category from whatever label appears most often
-    // across its campaigns (e.g. "Transactional", "Growth", "Post-transactional").
-    const labelCounts = {};
-    campaignsWithContent.forEach(c => {
-      (c.labels || []).forEach(l => { labelCounts[l] = (labelCounts[l] || 0) + 1; });
-    });
-    const category = Object.keys(labelCounts).sort((a, b) => labelCounts[b] - labelCounts[a])[0] || 'Uncategorized';
-
     results.push({
       ...pickSafeJourney(journey),
-      category,
       campaigns: campaignsWithContent,
     });
   }
