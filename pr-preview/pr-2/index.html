@@ -109,7 +109,9 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 .onboard-item-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px;}
 .onboard-item-desc{font-size:12px;color:var(--muted);line-height:1.5;}
 .onboard-footer{padding:16px 26px 22px;display:flex;justify-content:flex-end;}
-.onboard-btn{background:var(--orange);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;}
+.onboard-btn{position:relative;overflow:hidden;background:var(--orange);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;}
+.onboard-btn::before{content:'';position:absolute;top:0;left:-75%;width:50%;height:100%;background:linear-gradient(120deg,transparent,rgba(255,255,255,.4),transparent);transform:skewX(-20deg);transition:left .55s ease;}
+.onboard-btn:hover::before{left:125%;}
 .onboard-btn:hover{background:var(--orange-dim);}
 
 /* PAGES */
@@ -2722,7 +2724,7 @@ async function loadSheetData() {
 }
 
 /* ── ONBOARDING ── */
-const APP_VERSION = '4.4.0.0';
+const APP_VERSION = '5.0.0.0';
 const ONBOARD_KEY = 'riaMessagingHub_lastSeenVersion';
 
 function renderOnboardingModal(mode){
@@ -2736,21 +2738,21 @@ function renderOnboardingModal(mode){
     eyebrow = 'Welcome';
     title = 'What this tool does';
     items = [
-      {icon:'', t:'Explore', d:'Message Flow Map, Messages Library, and Customer Journeys — what gets sent, to whom, and through which channel.'},
-      {icon:'', t:'Cost Modeling', d:'SMS cost calculators and global deployment cost projections, on both Clickatell and Twilio rates.'},
-      {icon:'', t:'Methodology', d:'A plain-language breakdown of how every number here is actually calculated.'},
-      {icon:'', t:'Live data', d:'Flow Map, Library, and Journeys only ever show messages marked Live in the source sheet.'},
+      {icon:'', t:'Ria, Xe, B&M, Digital', d:'Switch brand at the top of the sidebar (Ria is live, Xe isn\'t built yet), and audience below it. B&M keeps the full toolkit; Digital is Explore-only.'},
+      {icon:'', t:'Digital Customer Journeys, live from Iterable', d:'Real journeys and campaigns, not a mockup. Search, filter by channel or status, and click any message to see it rendered.'},
+      {icon:'', t:'Open in Iterable', d:'Every journey tile links straight to its real workflow.'},
+      {icon:'', t:'Live data only', d:'Flow Map, Library, and Journeys only ever show messages marked Live in the source.'},
       {icon:'', t:'Share a message', d:'Click the link icon on any message card in the Library to copy a link straight to it.'},
     ];
   } else if(mode === 'whatsnew'){
     eyebrow = "What's new";
-    title = 'This tool got a redesign';
+    title = 'This tool changed a lot since you last saw it';
     items = [
-      {icon:'', t:'Sidebar navigation', d:'Tabs are now grouped into Explore, Cost Modeling, and Methodology in the left sidebar, instead of one flat row.'},
-      {icon:'', t:'Ria brand identity', d:"Navy and orange, Ria's actual palette, replacing the old generic purple theme."},
-      {icon:'', t:'New: Methodology tab', d:'A dedicated breakdown of how the cost figures and participation-rate model actually work.'},
-      {icon:'', t:'Shareable links', d:'Your current tab and filters are now reflected in the URL — copy the link to send someone the exact view you\'re looking at.'},
-      {icon:'', t:'Share a message', d:'Every message card in the Library now has a link icon — click it to copy a link straight to that specific message, already opened.'},
+      {icon:'', t:'Ria and Xe brand switcher', d:'Switch brand at the top of the sidebar. Ria is fully live; Xe is a placeholder for when that work starts.'},
+      {icon:'', t:'B&M and Digital, properly split', d:'Not just a filter anymore. They\'re now separate structural sides of the Hub, each with their own sidebar.'},
+      {icon:'', t:'Digital Customer Journeys is now live', d:'Real journeys and campaigns pulled straight from Iterable, grouped by category (Transactional, Service). Click any email, push, or in-app message to see it actually rendered.'},
+      {icon:'', t:'Search, filters, and status badges', d:'Search by name, filter by channel or status, and see at a glance whether a journey or campaign is enabled, running, draft, or archived.'},
+      {icon:'', t:'Open in Iterable', d:'Every journey tile links straight to its real workflow — no more hunting for it manually.'},
     ];
   } else {
     eyebrow = 'New feature';
