@@ -23,7 +23,7 @@
 
 const API_BASE = 'https://api.iterable.com/api';
 const API_KEY = process.env.ITERABLE_API_KEY;
-const JOURNEY_IDS = (process.env.JOURNEY_IDS || '226142,397134,687714,591526')
+const JOURNEY_IDS = (process.env.JOURNEY_IDS || '226142,397134,687714')
   .split(',')
   .map(s => parseInt(s.trim(), 10))
   .filter(n => !Number.isNaN(n));
@@ -50,6 +50,8 @@ function pickSafeJourney(j) {
     id: j.id,
     name: j.name,
     triggerEventNames: j.triggerEventNames || [],
+    enabled: !!j.enabled,
+    isArchived: !!j.isArchived,
   };
 }
 
@@ -60,6 +62,7 @@ function pickSafeCampaign(c) {
     channel: c.messageMedium, // "Email" | "Push" | "InApp" | "SMS"
     templateId: c.templateId,
     labels: c.labels || [],
+    campaignState: c.campaignState || null, // e.g. "Running" | "Draft" | "Archived" | "Aborted" | ...
   };
 }
 
