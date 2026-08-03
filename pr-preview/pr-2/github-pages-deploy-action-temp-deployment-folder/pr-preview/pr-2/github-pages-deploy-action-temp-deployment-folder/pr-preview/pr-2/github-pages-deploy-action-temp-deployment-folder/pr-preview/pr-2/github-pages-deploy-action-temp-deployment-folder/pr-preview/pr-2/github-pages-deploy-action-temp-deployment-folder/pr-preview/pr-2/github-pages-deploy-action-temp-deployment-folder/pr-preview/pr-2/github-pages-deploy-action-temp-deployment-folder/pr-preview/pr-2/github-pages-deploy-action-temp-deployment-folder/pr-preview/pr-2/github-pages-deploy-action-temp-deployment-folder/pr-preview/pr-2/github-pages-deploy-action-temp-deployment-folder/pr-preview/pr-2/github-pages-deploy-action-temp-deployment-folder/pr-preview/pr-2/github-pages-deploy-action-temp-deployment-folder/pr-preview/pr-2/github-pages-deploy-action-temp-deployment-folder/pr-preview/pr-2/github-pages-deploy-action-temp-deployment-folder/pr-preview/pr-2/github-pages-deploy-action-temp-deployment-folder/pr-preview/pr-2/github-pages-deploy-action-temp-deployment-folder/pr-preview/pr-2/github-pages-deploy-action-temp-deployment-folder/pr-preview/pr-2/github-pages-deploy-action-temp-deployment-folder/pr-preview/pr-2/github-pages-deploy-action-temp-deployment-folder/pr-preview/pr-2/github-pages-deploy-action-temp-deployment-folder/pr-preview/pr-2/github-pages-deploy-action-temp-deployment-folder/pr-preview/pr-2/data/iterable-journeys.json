@@ -1,6 +1,6 @@
 {
   "source": "iterable-sandbox",
-  "pulledAt": "2026-07-31T23:41:19.014Z",
+  "pulledAt": "2026-08-01T06:50:13.343Z",
   "journeys": [
     {
       "id": 226142,
@@ -91,7 +91,8 @@
           "templateId": 10093255,
           "labels": [],
           "content": {
-            "preview": null
+            "title": "{{recipientFirstName}} received the money!",
+            "message": "How was your experience?"
           }
         },
         {
@@ -114,7 +115,8 @@
           "templateId": 10093253,
           "labels": [],
           "content": {
-            "preview": null
+            "title": "{{recipientFirstName}} received the money!",
+            "message": "Tell us about your experience"
           }
         },
         {
@@ -124,7 +126,8 @@
           "templateId": 10093249,
           "labels": [],
           "content": {
-            "preview": null
+            "title": "{{recipientFirstName}} received the money!",
+            "message": "Take a minute to review your experience"
           }
         },
         {
@@ -136,7 +139,8 @@
             "Transactional"
           ],
           "content": {
-            "preview": null
+            "title": "Transfer completed!",
+            "message": "Your transfer (Order number: {{transactionId}}) has been delivered."
           }
         },
         {
@@ -148,7 +152,8 @@
             "Transactional"
           ],
           "content": {
-            "preview": null
+            "title": "Transfer completed!",
+            "message": "Your transfer (Order number: {{transactionId}}) has been deposited."
           }
         },
         {
@@ -160,7 +165,8 @@
             "Transactional"
           ],
           "content": {
-            "preview": null
+            "title": "Transfer completed!",
+            "message": "Your transfer (Order number: {{transactionId}}) has been picked up. "
           }
         },
         {
@@ -336,7 +342,8 @@
             "Lifecycle"
           ],
           "content": {
-            "preview": null
+            "title": "{{firstName}},",
+            "message": "Welcome to your Ria Wallet! Start moving your money easier than ever. "
           }
         },
         {
@@ -361,7 +368,8 @@
             "Lifecycle"
           ],
           "content": {
-            "preview": null
+            "title": "Trusted as always!",
+            "message": "Now offering more ways to help you use your money where you need it."
           }
         },
         {
@@ -399,7 +407,8 @@
             "Lifecycle"
           ],
           "content": {
-            "preview": null
+            "title": "Fast and easy transfers!",
+            "message": "Start sending now and enjoy the convenience."
           }
         },
         {
@@ -424,7 +433,8 @@
             "Lifecycle"
           ],
           "content": {
-            "preview": null
+            "title": "Instant at your fingertips!",
+            "message": "Receive your money with the same trusted brand as always."
           }
         },
         {
@@ -449,7 +459,8 @@
             "Lifecycle"
           ],
           "content": {
-            "preview": null
+            "title": "It's fast and simple!",
+            "message": "Boost your data bundle and top up instantly!"
           }
         },
         {
@@ -474,7 +485,8 @@
             "Lifecycle"
           ],
           "content": {
-            "preview": null
+            "title": "Easy cash out! ",
+            "message": "Take a look at each step to get started!"
           }
         },
         {
@@ -499,7 +511,8 @@
             "Lifecycle"
           ],
           "content": {
-            "preview": null
+            "title": "Money where you need it!",
+            "message": "Lightning-fast electricity bill payments!"
           }
         },
         {
@@ -524,7 +537,8 @@
             "Lifecycle"
           ],
           "content": {
-            "preview": null
+            "title": "Quick and easy bill payment!",
+            "message": "Pay your water bill in seconds."
           }
         },
         {
