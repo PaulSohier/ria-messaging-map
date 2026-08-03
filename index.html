@@ -1365,6 +1365,33 @@ const CAMPAIGN_STATUS_COLORS = {
   Finished:  {bg:'#EFEFEC', color:'#6E7178'},
   Aborted:   {bg:'#FCEAEA', color:'#B23A3A'},
 };
+// Placeholder metrics for design/UX purposes only — no real Iterable metrics
+// endpoint is wired up yet. Numbers are seeded per campaign so they at least
+// stay stable across re-renders instead of jumping around randomly.
+function seededRandom(seed){
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+function mockMetricsHtml(campaignId){
+  const sent = Math.floor(500 + seededRandom(campaignId) * 15000);
+  const openRate = Math.round(15 + seededRandom(campaignId + 1) * 45);
+  const clickRate = Math.round(2 + seededRandom(campaignId + 2) * 18);
+  const unsubRate = (seededRandom(campaignId + 3) * 1.2).toFixed(2);
+  function stat(value, label){
+    return '<div style="flex:1;text-align:center;padding:10px 6px;">'
+      + '<div style="font-size:18px;font-weight:700;color:var(--text);">'+value+'</div>'
+      + '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;">'+label+'</div>'
+      + '</div>';
+  }
+  return '<div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:relative;">'
+    + '<span style="position:absolute;top:4px;right:8px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--hint);">Mock data — not connected to real metrics</span>'
+    + stat(sent.toLocaleString(), 'Sent')
+    + stat(openRate+'%', 'Open rate')
+    + stat(clickRate+'%', 'Click rate')
+    + stat(unsubRate+'%', 'Unsubscribe rate')
+    + '</div>';
+}
+
 function campaignStatusBadge(state){
   if(!state) return '';
   const c = CAMPAIGN_STATUS_COLORS[state] || {bg:'#EFEFEC', color:'#6E7178'};
@@ -1435,6 +1462,7 @@ function toggleIterableCampaign(campId, journeyId){
 
   panel.innerHTML = '<div class="iter-expanded-hdr"><span>'+esc(target.name)+'</span>'
     + '<button onclick="toggleIterableCampaign('+target.id+','+journeyId+')" class="iter-expand-close">Collapse</button></div>'
+    + mockMetricsHtml(target.id)
     + '<div class="iter-expanded-body" id="iter-expand-body-'+journeyId+'"></div>';
   panel.classList.add('open');
   mountExpandedInline(target, journeyId);
