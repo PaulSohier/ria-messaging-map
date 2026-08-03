@@ -184,7 +184,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 
 .iter-thumbs-row{gap:12px;flex-wrap:wrap;display:flex;max-height:0;overflow:hidden;opacity:0;margin-top:0;padding-top:0;border-top:1px solid transparent;transition:max-height .35s cubic-bezier(.4,0,.2,1),opacity .25s ease,margin-top .35s ease,padding-top .35s ease,border-color .35s ease;}
 .iter-thumbs-row.open{max-height:20000px;opacity:1;margin-top:14px;padding-top:14px;border-top-color:var(--border);}
-.iter-thumb{width:96px;flex-shrink:0;cursor:pointer;}
+.iter-thumb{width:96px;flex-shrink:0;cursor:pointer;position:relative;}
 .iter-thumb-inner{width:96px;height:128px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff;position:relative;transition:border-color .15s;}
 .iter-thumb:hover .iter-thumb-inner{border-color:var(--purple);}
 .iter-thumb-label{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.3;max-height:2.6em;overflow:hidden;text-align:center;}
@@ -1195,7 +1195,7 @@ async function renderIterableJourneys(){
 
       html += '<div class="iter-journey-tile">';
       html += '<div class="iter-journey-hdr" onclick="toggleIterJourney('+j.id+')">';
-      html += '<div><div style="font-size:14px;font-weight:700;color:var(--text);">'+esc(j.name)+'</div>'
+      html += '<div><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:700;color:var(--text);">'+esc(j.name)+'</span>'+journeyStatusBadge(j)+'</div>'
         + '<div style="font-size:11px;color:var(--muted);margin-top:3px;">Triggered by: '+esc((j.triggerEventNames||[]).join(', '))+'</div>'
         + '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+esc(chSummary)+'</div></div>';
       html += '<span class="iter-chevron" id="iter-j-chev-'+j.id+'">'+(jOpen?'&#9662;':'&#9656;')+'</span>';
@@ -1205,6 +1205,7 @@ async function renderIterableJourneys(){
       (j.campaigns||[]).forEach(function(c){
         const isExpanded = _iterExpanded[j.id] === c.id;
         html += '<div class="iter-thumb'+(isExpanded?' iter-thumb-active':'')+'" data-journey="'+j.id+'" data-camp="'+c.id+'" onclick="toggleIterableCampaign('+c.id+','+j.id+')" title="'+esc(c.name)+'">'
+          + campaignStatusBadge(c.campaignState)
           + '<div class="iter-thumb-inner" id="iter-thumb-'+c.id+'"></div>'
           + '<div class="iter-thumb-label">'+esc(c.name)+'</div>'
           + '</div>';
@@ -1273,13 +1274,37 @@ function toggleIterJourney(journeyId){
 // Renders a small iOS-style push notification banner (title bold, body below),
 // since push messages have no HTML/visual layout of their own — this mirrors
 // how Iterable's own preview shows push content.
+function journeyStatusBadge(journey){
+  let label, bg, color;
+  if(journey.isArchived){ label='Archived'; bg='#EFEFEC'; color='#6E7178'; }
+  else if(journey.enabled){ label='Enabled'; bg='#E9F6EC'; color='#1E7A3C'; }
+  else { label='Disabled'; bg='#FCEAEA'; color='#B23A3A'; }
+  return '<span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:20px;background:'+bg+';color:'+color+';">'+label+'</span>';
+}
+
+const CAMPAIGN_STATUS_COLORS = {
+  Running:   {bg:'#E9F6EC', color:'#1E7A3C'},
+  Recurring: {bg:'#E9F6EC', color:'#1E7A3C'},
+  Draft:     {bg:'#FFF0E6', color:'#B25A0A'},
+  Ready:     {bg:'#FFF0E6', color:'#B25A0A'},
+  Scheduled: {bg:'#FFF0E6', color:'#B25A0A'},
+  Starting:  {bg:'#FFF0E6', color:'#B25A0A'},
+  Archived:  {bg:'#EFEFEC', color:'#6E7178'},
+  Finished:  {bg:'#EFEFEC', color:'#6E7178'},
+  Aborted:   {bg:'#FCEAEA', color:'#B23A3A'},
+};
+function campaignStatusBadge(state){
+  if(!state) return '';
+  const c = CAMPAIGN_STATUS_COLORS[state] || {bg:'#EFEFEC', color:'#6E7178'};
+  return '<span style="position:absolute;top:3px;left:3px;font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;padding:1px 5px;border-radius:8px;background:'+c.bg+';color:'+c.color+';z-index:2;">'+esc(state)+'</span>';
+}
+
 function pushNotificationHtml(title, message){
   return '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#EDEDF2;padding:8px;">'
-    + '<div style="width:100%;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-radius:13px;padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,.15);font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;">'
-    + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">'
+    + '<div style="width:100%;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-radius:13px;padding:10px 12px;box-shadow:0 1px 3px rgba(0,0,0,.15);font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;text-align:center;">'
+    + '<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:3px;">'
     + '<div style="width:16px;height:16px;border-radius:4px;background:var(--purple);flex-shrink:0;"></div>'
     + '<span style="font-size:10px;font-weight:600;color:#6b6b70;text-transform:uppercase;letter-spacing:.02em;">Ria</span>'
-    + '<span style="font-size:10px;color:#8a8a8e;margin-left:auto;">now</span>'
     + '</div>'
     + '<div style="font-size:13px;font-weight:700;color:#000;line-height:1.3;">'+esc(title||'')+'</div>'
     + '<div style="font-size:13px;color:#000;line-height:1.3;margin-top:1px;">'+esc(message||'')+'</div>'
@@ -1297,7 +1322,9 @@ function mountThumbnail(campaign){
       el.innerHTML = '<div style="font-size:9px;color:var(--hint);padding:6px;text-align:center;">No preview</div>';
       return;
     }
-    el.innerHTML = '<div style="width:100%;height:100%;transform:scale(0.85);transform-origin:center;">'+pushNotificationHtml(content.title, content.message)+'</div>';
+    el.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">'
+      + '<div style="width:300px;flex-shrink:0;transform:scale(0.32);transform-origin:center;">'+pushNotificationHtml(content.title, content.message)+'</div>'
+      + '</div>';
     return;
   }
 
@@ -1350,9 +1377,9 @@ function mountExpandedInline(campaign, journeyId){
       body.innerHTML = '<div style="padding:24px;color:var(--muted);font-size:13px;">No renderable content for this campaign.</div>';
       return;
     }
-    body.style.width = '340px';
+    body.style.width = '100%';
     body.style.height = 'auto';
-    body.innerHTML = pushNotificationHtml(content.title, content.message);
+    body.innerHTML = '<div style="width:340px;">'+pushNotificationHtml(content.title, content.message)+'</div>';
     return;
   }
 
