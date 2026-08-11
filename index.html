@@ -1966,7 +1966,7 @@ function renderFlow(){
     for(var i=start;i<end;i++){
       var d = filteredData[i];
       var agent=(d.agent&&d.agent!=='nan')?d.agent:'';
-      var entryLabel=(d.entry&&d.entry!=='nan')?d.entry:'Direct';
+      var entryLabel=(d.entry&&d.entry!=='nan')?d.entry:'';
       var e = ep(entryLabel, agent, d.channel);
       c8.appendChild(e);
       epEls[i]=e;
