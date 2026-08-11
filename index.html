@@ -1822,9 +1822,9 @@ function renderFlow(){
 
   // Event dropdown
   ctrlHtml += '<div style="display:flex;align-items:center;gap:6px;">'
-    + '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Trigger</span>'
+    + '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Event</span>'
     + '<select id="flow-event-sel" onchange="setFlowFilter(\'event\',this.value)" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:12px;color:var(--text);cursor:pointer;max-width:280px;">'
-    + '<option value="all">All triggers</option>';
+    + '<option value="all">All events</option>';
   events.forEach(function(ev){
     ctrlHtml += '<option value="'+ev.replace(/"/g,'&quot;')+'"'+(window._flowState.event===ev?' selected':'')+'>'+ev+'</option>';
   });
@@ -1868,7 +1868,7 @@ function renderFlow(){
   // Columns are now sized via CSS flex-basis (see .flow-col-N / .flow-spacer) so the
   // diagram fills the available width instead of sitting pinned at a fixed pixel size.
   const COL_CLASSES = ['flow-col-0','flow-spacer','flow-col-2','flow-spacer','flow-col-4','flow-spacer','flow-col-6','flow-spacer','flow-col-8'];
-  const COL_N = ['Message library','','Trigger event','','Region','','Channel','','Who gets it'];
+  const COL_N = ['Message library','','Event','','Country','','Channel','','Who gets it'];
   const ROW_G = 9;
   const labelsHTML = COL_N.map((n,i)=>'<div class="flow-col-lbl '+COL_CLASSES[i]+'">'+n+'</div>').join('');
 
@@ -1879,7 +1879,7 @@ function renderFlow(){
     + (window._flowState.event!=='all'?' for <strong>'+window._flowState.event+'</strong>':'')
     + (window._flowState.country!=='all'?' in <strong>'+window._flowState.country+'</strong>':'')
     + '. Blue = SMS · Green = WhatsApp · Amber = Email · Purple = Push'
-    + (isFullView ? ' · <span style="color:var(--muted);">Showing all '+allData.length.toLocaleString('en-US')+' routes at once — rendered progressively as you scroll. Pick a country or trigger above to narrow it down.</span>' : '')
+    + (isFullView ? ' · <span style="color:var(--muted);">Showing all '+allData.length.toLocaleString('en-US')+' routes at once — rendered progressively as you scroll. Pick a country or event above to narrow it down.</span>' : '')
     + '</div>'
     + '<div class="flow-outer"><div class="flow-col-labels">'+labelsHTML+'</div>'
     + '<div class="flow-canvas" id="fcanvas"><svg class="flow-svg" id="fsvg" width="100%" height="4"></svg>'
@@ -1965,8 +1965,9 @@ function renderFlow(){
     var end = Math.min(filteredData.length, start+BATCH);
     for(var i=start;i<end;i++){
       var d = filteredData[i];
-      var agent=(d.agent&&d.agent!=='nan')?d.agent:(d.entry&&d.entry!=='nan'?d.entry:'');
-      var e = ep(d.r1+(d.lang?' · '+d.lang:''), agent, d.channel);
+      var agent=(d.agent&&d.agent!=='nan')?d.agent:'';
+      var entryLabel=(d.entry&&d.entry!=='nan')?d.entry:'Direct';
+      var e = ep(entryLabel, agent, d.channel);
       c8.appendChild(e);
       epEls[i]=e;
     }
@@ -2119,7 +2120,7 @@ function renderP1(){
 
       html += '<div class="event-block" style="margin-bottom:10px">';
       html += '<div class="event-trigger" onclick="this.closest(\'\.event-block\').classList.toggle(\'open\')">';
-      html += '<div><div class="ev-lbl">Trigger event</div><div class="ev-name">' + esc(ev) + '</div></div>';
+      html += '<div><div class="ev-lbl">Event</div><div class="ev-name">' + esc(ev) + '</div></div>';
       html += '<div class="ev-counts"><div class="evc"><div class="evc-n live">' + liveN + '</div><div class="evc-l">live</div></div><div class="chevron">&#9662;</div></div>';
       html += '</div>';
       var chList = activeAudience === 'digital' ? ['Email','Push','InApp'] : ['SMS','WhatsApp'];
@@ -2788,7 +2789,7 @@ function renderOnboardingModal(mode){
     title = 'Share a link to any message';
     items = [
       {icon:'', t:'Look for the link icon', d:'On the Messages Library tab, every message card has a small  in the top-right corner.'},
-      {icon:'', t:'Click it to copy a link', d:'That link goes straight to this exact message — no need to explain which tab, filter, or trigger event to click through.'},
+      {icon:'', t:'Click it to copy a link', d:'That link goes straight to this exact message — no need to explain which tab, filter, or event to click through.'},
       {icon:'', t:'Try it', d:'Send it in Teams, drop it in a ticket, or paste it into a doc — whoever opens it lands on the message, already expanded.'},
     ];
   }
