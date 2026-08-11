@@ -349,8 +349,8 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
   </div>
   <div class="aud-toggle" id="audience-switcher">
     <div class="aud-toggle-thumb" id="aud-toggle-thumb"></div>
-    <button class="aud-toggle-opt active" data-aud="bm" onclick="setStructuralAudience('bm')">B&amp;M</button>
-    <button class="aud-toggle-opt" data-aud="digital" onclick="setStructuralAudience('digital')">Digital</button>
+    <button class="aud-toggle-opt active" id="aud-opt-bm" data-aud="bm" onclick="setStructuralAudience('bm')">B&amp;M</button>
+    <button class="aud-toggle-opt" id="aud-opt-digital" data-aud="digital" onclick="setStructuralAudience('digital')">Digital</button>
   </div>
   <nav class="sb-nav" id="sb-nav"></nav>
   <div class="sb-footer">
@@ -663,6 +663,7 @@ function setBrand(brand){
   if(toggle) toggle.classList.toggle('xe-active', brand === 'xe');
   const audSwitcher = document.getElementById('audience-switcher');
   if(audSwitcher) audSwitcher.classList.toggle('disabled', brand === 'xe');
+  updateAudienceLabels(brand);
 
   if(brand === 'ria'){
     activeAudience = document.querySelector('.aud-toggle-opt.active') ? document.querySelector('.aud-toggle-opt.active').dataset.aud : 'bm';
@@ -674,6 +675,18 @@ function setBrand(brand){
     renderXePlaceholder();
   }
   updateURLState();
+}
+
+function updateAudienceLabels(brand){
+  const bmOpt = document.getElementById('aud-opt-bm');
+  const digitalOpt = document.getElementById('aud-opt-digital');
+  if(brand === 'xe'){
+    if(bmOpt) bmOpt.textContent = 'Consumer';
+    if(digitalOpt) digitalOpt.textContent = 'Corporate';
+  } else {
+    if(bmOpt) bmOpt.textContent = 'B&M';
+    if(digitalOpt) digitalOpt.textContent = 'Digital';
+  }
 }
 
 function renderXePlaceholder(){
@@ -2812,6 +2825,7 @@ if(initialAudSwitcher){
   initialAudSwitcher.classList.toggle('disabled', activeBrand === 'xe');
   initialAudSwitcher.classList.toggle('digital-active', activeAudience === 'digital');
 }
+updateAudienceLabels(activeBrand);
 renderSidebarNav();
 buildIntentBar();
 if(activeBrand === 'xe'){
