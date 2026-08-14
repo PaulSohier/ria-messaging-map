@@ -501,6 +501,12 @@ let activeTab = 'p0';
 let searchQuery = '';
 let p1CountryFilter = 'all';
 let p1ChannelFilter = 'all';
+let p2CountryFilter = 'all'; // Customer Journeys — B&M only (SMS is the only channel with per-country variants)
+
+window.setP2CountryFilter = function(val){
+  p2CountryFilter = val;
+  renderJourneys();
+};
 
 function setP1CountryFilter(val){
   p1CountryFilter = val;
@@ -1690,6 +1696,45 @@ function renderJourneys(){
     });
   }
 
+  // Country dropdown — B&M only. Each B&M SMS message already carries the single
+  // country it applies to (m.r1); collect every country that shows up anywhere
+  // in these journeys (before filtering, so the dropdown always lists all of them),
+  // then — if a specific country is chosen — keep only messages for that country.
+  // Digital messages (m.audience !== 'bm') are left untouched either way, since
+  // this request was specifically about the B&M journeys.
+  const p2CountrySet = {};
+  JOURNEYS.forEach(function(j){
+    if(j.audience !== 'bm') return;
+    j.steps.forEach(function(step){
+      if(!step.messaging) return;
+      Object.keys(step.messaging).forEach(function(ch){
+        step.messaging[ch].forEach(function(m){
+          var c = (m.r1||'').trim();
+          if(c) p2CountrySet[c] = true;
+        });
+      });
+    });
+  });
+  const p2CountryOpts = Object.keys(p2CountrySet).sort();
+
+  if(p2CountryFilter !== 'all'){
+    JOURNEYS.forEach(function(j){
+      j.steps.forEach(function(step){
+        if(!step.messaging) return;
+        Object.keys(step.messaging).forEach(function(ch){
+          step.messaging[ch] = step.messaging[ch].filter(function(m){
+            if(m.audience !== 'bm') return true; // country filter only scopes B&M
+            return (m.r1||'').trim() === p2CountryFilter;
+          });
+          if(step.messaging[ch].length === 0){
+            step._hadMsgBeforeCountryFilter = true; // had messaging before this country filter removed it
+            delete step.messaging[ch];
+          }
+        });
+      });
+    });
+  }
+
   const CH_COLOR = {SMS:'#0C447C',WhatsApp:'#085041',Email:'#633806',Push:'#6B21A8'};
   const CH_ICON  = {SMS:'',WhatsApp:'',Email:'',Push:''};
   const CH_BG    = {SMS:'#E6F1FB',WhatsApp:'#E1F5EE',Email:'#FAEEDA',Push:'#F3E8FF'};
@@ -1713,7 +1758,17 @@ function renderJourneys(){
     }
   };
 
-  let html = '<div style="max-width:1600px;width:100%;">';
+  let html = '';
+  if(activeAudience === 'bm'){
+    html += '<div class="optin-toolbar" style="margin-bottom:20px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Country:</span>'
+      + '<select id="p2-country-select" class="p1-filter-select" onchange="setP2CountryFilter(this.value)">'
+      + '<option value="all"'+(p2CountryFilter==='all'?' selected':'')+'>All countries</option>'
+      + p2CountryOpts.map(function(c){ return '<option value="'+esc(c)+'"'+(p2CountryFilter===c?' selected':'')+'>'+esc(c)+'</option>'; }).join('')
+      + '</select>'
+      + (p2CountryFilter!=='all' ? '<span style="font-size:11px;color:var(--muted);">Showing only steps with a message for '+esc(p2CountryFilter)+'</span>' : '')
+      + '</div>';
+  }
+  html += '<div style="max-width:1600px;width:100%;">';
 
   JOURNEYS.forEach(function(journey){
     if(activeBrand === 'ria' && journey.audience !== activeAudience) return;
@@ -1771,7 +1826,8 @@ function renderJourneys(){
         html += '</div>';
         html += '<div style="font-size:9px;color:' + color + ';margin-top:3px;font-weight:600;">click to view →</div>';
       } else if(!isStart && !isEnd) {
-        html += '<div style="margin-top:5px;font-size:9px;color:var(--hint);border:1px dashed var(--border-mid);padding:1px 5px;border-radius:3px;display:inline-block;">no message</div>';
+        var noMsgLabel = (p2CountryFilter!=='all' && step._hadMsgBeforeCountryFilter) ? ('no message for '+esc(p2CountryFilter)) : 'no message';
+        html += '<div style="margin-top:5px;font-size:9px;color:var(--hint);border:1px dashed var(--border-mid);padding:1px 5px;border-radius:3px;display:inline-block;">'+noMsgLabel+'</div>';
       }
 
       html += '</div>'; // label
@@ -2287,6 +2343,10 @@ function renderCalc(){
       +   'step="0.0001" min="0" oninput="recalcSMS()" readonly '
       +   'style="background:var(--purple-bg);color:var(--purple);font-weight:600;cursor:default;">'
       + '</td>'
+      + '<td class="calc-input-cell">'
+      +   '<input type="number" class="calc-input calc-segs-input" id="r'+i+'_segs" '
+      +   'value="2" step="1" min="1" max="10" oninput="recalcSMS()" style="width:56px;">'
+      + '</td>'
       + '<td class="calc-orders-cell" id="r'+i+'_orders">—</td>'
       + '<td class="calc-result-cell" id="r'+i+'_result">—</td>'
       + '<td class="calc-notes-cell">'+ev.note+'</td>'
@@ -2301,7 +2361,7 @@ function renderCalc(){
     + 'Participation % = share of total orders that triggered each SMS event, based on US Power BI data (Jan–Dec 2025). '
     + 'These US rates are used as a proxy for all countries — representing the cost of rolling out the US SMS event system globally. '
     + 'Total orders and SMS cost auto-fill when you select a country. All fields remain editable. '
-    + 'Most Ria messages are ~200 characters, which spans 2 telco billing units of 160 characters each. This is factored into the cost calculation automatically. '
+    + '<strong>Billing units</strong> are set per event in the table (160 chars = 1 unit, defaulted to 2 since most Ria messages run ~200 characters) — shorten an event\'s message below 160 characters and drop its billing units to 1 to see the savings for just that event. '
     + '<strong>SMS opt-in scenario</strong> (below) is separate from participation % — it models what happens if the share of customers opted in to SMS changes. '
     + 'Baseline is today\'s US rate: '+US_SMS_OPTIN.toLocaleString('en-US')+' of '+US_TOTAL_CUSTOMERS.toLocaleString('en-US')+' US customers ('+OPTIN_BASELINE_PCT+'%). '
     + 'Used as a proxy for all countries, same as participation % — no other market has its own opt-in data on file yet.'
@@ -2334,14 +2394,6 @@ function renderCalc(){
     + '<div style="font-size:9px;color:var(--hint);margin-top:2px;">Auto-filled by country · editable</div>'
     + '</div>'
 
-    // SMS segments
-    + '<div style="display:flex;flex-direction:column;gap:6px;">'
-    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Billing units / SMS</label>'
-    + '<input id="calc-segments" type="number" value="2" min="1" max="10" step="1" oninput="recalcSMS()" '
-    + 'style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;font-weight:500;color:var(--text);width:120px;">'
-    + '<div style="font-size:9px;color:var(--hint);margin-top:2px;">166 chars=1 · 332=2 · 498=3</div>'
-    + '</div>'
-
     // SMS opt-in scenario
     + '<div style="display:flex;flex-direction:column;gap:6px;">'
     + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">SMS opt-in scenario</label>'
@@ -2365,7 +2417,7 @@ function renderCalc(){
     + '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--purple);margin-bottom:3px;">Cost per order</div>'
     +   '<div id="calc-cost-per-order" style="font-size:26px;font-weight:700;color:var(--purple);">—</div></div>'
     + '<div style="font-size:11px;color:var(--purple);opacity:.75;max-width:300px;">'
-    + 'Based on US 2025 participation rates (proxy) × selected country orders × country SMS cost × opt-in scenario multiplier. All fields editable.'
+    + 'Based on US 2025 participation rates (proxy) × selected country orders × country SMS cost × each event\'s own billing units × opt-in scenario multiplier. All fields editable.'
     + '</div>'
     + '</div>'
 
@@ -2375,6 +2427,7 @@ function renderCalc(){
     + '<th class="calc-th-name">Event</th>'
     + '<th class="calc-th-num" style="min-width:110px;">Participation %<br><span class="calc-th-sub">of total orders — US 2025</span></th>'
     + '<th class="calc-th-cost" style="min-width:110px;">Cost / SMS<br><span class="calc-th-sub">auto-filled by country</span></th>'
+    + '<th class="calc-th-num" style="min-width:90px;">Billing units<br><span class="calc-th-sub">160 chars = 1 · per event</span></th>'
     + '<th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--hint);border-bottom:1px solid var(--border);min-width:110px;">Est. messages sent</th>'
     + '<th class="calc-th-result" style="min-width:130px;">Total projected cost</th>'
     + '<th class="calc-th-notes">Source — US Power BI 2025</th>'
@@ -2438,7 +2491,6 @@ function calcSetCountry(){
 
 function recalcSMS(){
   const totalOrders = parseFloat(document.getElementById('totalOrders') ? document.getElementById('totalOrders').value : 0) || 0;
-  const segs        = parseFloat(document.getElementById('calc-segments') ? document.getElementById('calc-segments').value : 2) || 1;
   const optinSliderEl = document.getElementById('calc-optin-slider');
   const optinBaseline = window._calcOptInBaselinePct || 26.05;
   const optinPct    = optinSliderEl ? parseFloat(optinSliderEl.value) : optinBaseline;
@@ -2450,11 +2502,13 @@ function recalcSMS(){
     const rid    = row.id;
     const pctEl  = document.getElementById(rid + '_pct');
     const costEl = document.getElementById(rid + '_cost');
+    const segsEl = document.getElementById(rid + '_segs');
     const resEl  = document.getElementById(rid + '_result');
     const ordEl  = document.getElementById(rid + '_orders');
     if(!pctEl || !costEl || !resEl) return;
     const pct   = parseFloat(pctEl.value)  / 100 || 0;
     const cost  = parseFloat(costEl.value) || 0;
+    const segs  = parseFloat(segsEl ? segsEl.value : 2) || 1;
     const msgs  = Math.round(totalOrders * pct * optinMult);
     const total = msgs * cost * segs;
 
@@ -2521,6 +2575,10 @@ function renderCalcTwilio(){
       +   'step="0.0001" min="0" oninput="recalcSMSTwilio()" readonly '
       +   'style="background:var(--purple-bg);color:var(--purple);font-weight:600;cursor:default;">'
       + '</td>'
+      + '<td class="calc-input-cell">'
+      +   '<input type="number" class="calc-input calc-segs-input-tw" id="tr'+i+'_segs" '
+      +   'value="2" step="1" min="1" max="10" oninput="recalcSMSTwilio()" style="width:56px;">'
+      + '</td>'
       + '<td class="calc-orders-cell" id="tr'+i+'_orders">—</td>'
       + '<td class="calc-result-cell" id="tr'+i+'_result">—</td>'
       + '<td class="calc-notes-cell">'+ev.note+'</td>'
@@ -2533,7 +2591,9 @@ function renderCalcTwilio(){
     + '<strong>How to read this calculator</strong><br>'
     + 'Same model as the main SMS cost calculator, using Twilio\'s contracted rates (Order Form 00142240.0, effective Aug 1, 2025) instead of Clickatell\'s. '
     + 'Participation % = share of total orders that triggered each SMS event, based on US Power BI data (Jan–Dec 2025), used as a proxy for all countries. '
-    + 'Total orders and SMS cost auto-fill when you select a country. All fields remain editable.'
+    + 'Total orders and SMS cost auto-fill when you select a country. '
+    + '<strong>Billing units</strong> are set per event in the table (160 chars = 1 unit, defaulted to 2) — shorten an event\'s message below 160 characters and drop its billing units to 1 to see the savings for just that event. '
+    + 'All fields remain editable.'
     + '</div>'
 
     + '<div style="background:#FDF5E8;border:1px solid #EF9F27;border-radius:var(--radius);padding:10px 18px;margin-bottom:20px;font-size:11px;color:#633806;line-height:1.6;">'
@@ -2566,13 +2626,6 @@ function renderCalcTwilio(){
     + '<div style="font-size:9px;color:var(--hint);margin-top:2px;">Auto-filled by country · editable</div>'
     + '</div>'
 
-    + '<div style="display:flex;flex-direction:column;gap:6px;">'
-    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Billing units / SMS</label>'
-    + '<input id="calc-segments-tw" type="number" value="2" min="1" max="10" step="1" oninput="recalcSMSTwilio()" '
-    + 'style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;font-weight:500;color:var(--text);width:120px;">'
-    + '<div style="font-size:9px;color:var(--hint);margin-top:2px;">166 chars=1 · 332=2 · 498=3</div>'
-    + '</div>'
-
     + '</div>'
 
     + '<div style="display:flex;align-items:center;gap:28px;padding:14px 20px;background:var(--purple-bg);border-radius:var(--radius);margin-bottom:20px;flex-wrap:wrap;">'
@@ -2585,7 +2638,7 @@ function renderCalcTwilio(){
     + '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--purple);margin-bottom:3px;">Cost per order</div>'
     +   '<div id="calc-cost-per-order-tw" style="font-size:26px;font-weight:700;color:var(--purple);">—</div></div>'
     + '<div style="font-size:11px;color:var(--purple);opacity:.75;max-width:300px;">'
-    + 'Twilio rate card × US 2025 participation rates (proxy) × selected country orders. Excludes carrier fees. All fields editable.'
+    + 'Twilio rate card × US 2025 participation rates (proxy) × selected country orders × each event\'s own billing units. Excludes carrier fees. All fields editable.'
     + '</div>'
     + '</div>'
 
@@ -2594,6 +2647,7 @@ function renderCalcTwilio(){
     + '<th class="calc-th-name">Event</th>'
     + '<th class="calc-th-num" style="min-width:110px;">Participation %<br><span class="calc-th-sub">of total orders — US 2025</span></th>'
     + '<th class="calc-th-cost" style="min-width:110px;">Cost / SMS<br><span class="calc-th-sub">auto-filled by country</span></th>'
+    + '<th class="calc-th-num" style="min-width:90px;">Billing units<br><span class="calc-th-sub">160 chars = 1 · per event</span></th>'
     + '<th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--hint);border-bottom:1px solid var(--border);min-width:110px;">Est. messages sent</th>'
     + '<th class="calc-th-result" style="min-width:130px;">Total projected cost</th>'
     + '<th class="calc-th-notes">Source — US Power BI 2025</th>'
@@ -2646,7 +2700,6 @@ function calcSetCountryTwilio(){
 
 function recalcSMSTwilio(){
   const totalOrders = parseFloat(document.getElementById('totalOrders-tw') ? document.getElementById('totalOrders-tw').value : 0) || 0;
-  const segs        = parseFloat(document.getElementById('calc-segments-tw') ? document.getElementById('calc-segments-tw').value : 2) || 1;
   let grandTotal = 0;
   let grandMsgs  = 0;
 
@@ -2654,11 +2707,13 @@ function recalcSMSTwilio(){
     const rid    = row.id;
     const pctEl  = document.getElementById(rid + '_pct');
     const costEl = document.getElementById(rid + '_cost');
+    const segsEl = document.getElementById(rid + '_segs');
     const resEl  = document.getElementById(rid + '_result');
     const ordEl  = document.getElementById(rid + '_orders');
     if(!pctEl || !costEl || !resEl) return;
     const pct   = parseFloat(pctEl.value)  / 100 || 0;
     const cost  = parseFloat(costEl.value) || 0;
+    const segs  = parseFloat(segsEl ? segsEl.value : 2) || 1;
     const msgs  = Math.round(totalOrders * pct);
     const total = msgs * cost * segs;
 
