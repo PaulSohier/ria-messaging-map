@@ -137,22 +137,11 @@ body.brand-xe{--orange:#1B57D6;--orange-bg:#E8EEFB;--orange-dim:#1846AD;--purple
 .search-count{font-size:11px;color:var(--hint);margin-left:10px;white-space:nowrap;}
 mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 
-/* ONBOARDING MODAL */
-.onboard-overlay{position:fixed;inset:0;background:rgba(0,17,51,.55);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
-.onboard-modal{background:var(--card);border-radius:14px;max-width:520px;width:100%;max-height:86vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,17,51,.35);}
-.onboard-hdr{background:var(--navy);color:#fff;padding:22px 26px;border-radius:14px 14px 0 0;}
-.onboard-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange);margin-bottom:6px;}
-.onboard-title{font-size:19px;font-weight:700;}
-.onboard-body{padding:22px 26px;}
-.onboard-item{display:flex;gap:12px;margin-bottom:16px;}
-.onboard-item-icon{font-size:20px;flex-shrink:0;width:32px;text-align:center;}
-.onboard-item-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px;}
-.onboard-item-desc{font-size:12px;color:var(--muted);line-height:1.5;}
-.onboard-footer{padding:16px 26px 22px;display:flex;justify-content:flex-end;}
-.onboard-btn{position:relative;overflow:hidden;background:var(--orange);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;}
-.onboard-btn::before{content:'';position:absolute;top:0;left:-75%;width:50%;height:100%;background:linear-gradient(120deg,transparent,rgba(255,255,255,.4),transparent);transform:skewX(-20deg);transition:left .55s ease;}
-.onboard-btn:hover::before{left:125%;}
-.onboard-btn:hover{background:var(--orange-dim);}
+/* Shared primary button (used by the Xe "not built yet" placeholder) */
+.btn-primary{position:relative;overflow:hidden;background:var(--orange);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;}
+.btn-primary::before{content:'';position:absolute;top:0;left:-75%;width:50%;height:100%;background:linear-gradient(120deg,transparent,rgba(255,255,255,.4),transparent);transform:skewX(-20deg);transition:left .55s ease;}
+.btn-primary:hover::before{left:125%;}
+.btn-primary:hover{background:var(--orange-dim);}
 
 /* PAGES */
 .page{display:none;padding:24px 32px 48px;}
@@ -736,13 +725,14 @@ function renderNavSections(sections){
 
 function renderSidebarNav(){
   const nav = document.getElementById('sb-nav');
-  // Tools isn't tied to Brand/Audience — it renders the same regardless of Ria/Xe or B&M/Digital.
-  if(hubMode === 'tools'){
-    renderNavSections(TOOLS_NAV);
-    return;
-  }
+  // Tools are Ria-specific for now, so Xe shows the same "not built yet" note
+  // in Tools mode as it does in Explore — check brand before mode.
   if(activeBrand === 'xe'){
     nav.innerHTML = '<div style="padding:16px 12px;font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;">Xe isn\'t built yet — this option exists so the structure is ready when that work starts.</div>';
+    return;
+  }
+  if(hubMode === 'tools'){
+    renderNavSections(TOOLS_NAV);
     return;
   }
   const sections = NAV_CONFIG[activeAudience] || NAV_CONFIG.bm;
@@ -756,20 +746,17 @@ window.setHubMode = function(mode){
   const hubToggle = document.getElementById('hub-mode-toggle');
   if(hubToggle) hubToggle.classList.toggle('tools-active', mode === 'tools');
 
-  // Brand/Audience toggles are meaningless in Tools mode (tools aren't brand-specific) — hide them there.
-  const brandToggle = document.getElementById('brand-toggle');
+  // Audience (B&M/Digital) doesn't apply to Tools — hide it there. The Ria/Xe
+  // switch DOES still apply in Tools mode: Tools are Ria-specific for now, so
+  // switching to Xe there shows the same "not built yet" placeholder as Explore.
   const audToggle = document.getElementById('audience-switcher');
-  if(brandToggle) brandToggle.style.display = mode === 'tools' ? 'none' : 'flex';
   if(audToggle) audToggle.style.display = mode === 'tools' ? 'none' : 'flex';
 
   renderSidebarNav();
-  if(mode === 'tools'){
-    if(TOOLS_PAGE_IDS.indexOf(activeTab) === -1) activeTab = TOOLS_PAGE_IDS[0];
-    activateNavTabFor(activeTab);
-    renderPage(activeTab);
-  } else if(activeBrand === 'xe'){
+  if(activeBrand === 'xe'){
     renderXePlaceholder();
   } else {
+    if(mode === 'tools' && TOOLS_PAGE_IDS.indexOf(activeTab) === -1) activeTab = TOOLS_PAGE_IDS[0];
     activateNavTabFor(activeTab);
     renderPage(activeTab);
   }
@@ -841,7 +828,7 @@ function renderXePlaceholder(){
     + '<div style="max-width:480px;padding:60px 0;text-align:center;margin:0 auto;">'
     + '<div style="font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text);">Xe isn\'t built yet</div>'
     + '<div style="font-size:13px;color:var(--muted);line-height:1.6;">This option exists in the switcher so the structure is ready for when Xe messaging work starts. Nothing here is designed or populated yet.</div>'
-    + '<button class="onboard-btn" style="margin-top:20px;" onclick="setBrand(\'ria\')">Back to Ria</button>'
+    + '<button class="btn-primary" style="margin-top:20px;" onclick="setBrand(\'ria\')">Back to Ria</button>'
     + '</div>';
 }
 
@@ -2921,82 +2908,6 @@ async function loadSheetData() {
   jumpToSharedMessage();
 }
 
-/* ── ONBOARDING ── */
-const APP_VERSION = '5.0.0.0';
-const ONBOARD_KEY = 'riaMessagingHub_lastSeenVersion';
-
-function renderOnboardingModal(mode){
-  const overlay = document.createElement('div');
-  overlay.className = 'onboard-overlay';
-  overlay.onclick = function(e){ if(e.target===overlay) dismissOnboarding(); };
-
-  let items;
-  let eyebrow, title;
-  if(mode === 'first'){
-    eyebrow = 'Welcome';
-    title = 'What this tool does';
-    items = [
-      {icon:'', t:'Ria, Xe, B&M, Digital', d:'Switch brand at the top of the sidebar (Ria is live, Xe isn\'t built yet), and audience below it. B&M keeps the full toolkit; Digital is Explore-only.'},
-      {icon:'', t:'Digital Customer Journeys, live from Iterable', d:'Real journeys and campaigns, not a mockup. Search, filter by channel or status, and click any message to see it rendered.'},
-      {icon:'', t:'Open in Iterable', d:'Every journey tile links straight to its real workflow.'},
-      {icon:'', t:'Live data only', d:'Flow Map, Library, and Journeys only ever show messages marked Live in the source.'},
-      {icon:'', t:'Share a message', d:'Click the link icon on any message card in the Library to copy a link straight to it.'},
-    ];
-  } else if(mode === 'whatsnew'){
-    eyebrow = "What's new";
-    title = 'This tool changed a lot since you last saw it';
-    items = [
-      {icon:'', t:'Ria and Xe brand switcher', d:'Switch brand at the top of the sidebar. Ria is fully live; Xe is a placeholder for when that work starts.'},
-      {icon:'', t:'B&M and Digital, properly split', d:'Not just a filter anymore. They\'re now separate structural sides of the Hub, each with their own sidebar.'},
-      {icon:'', t:'Digital Customer Journeys is now live', d:'Real journeys and campaigns pulled straight from Iterable, grouped by category (Transactional, Service). Click any email, push, or in-app message to see it actually rendered.'},
-      {icon:'', t:'Search, filters, and status badges', d:'Search by name, filter by channel or status, and see at a glance whether a journey or campaign is enabled, running, draft, or archived.'},
-      {icon:'', t:'Open in Iterable', d:'Every journey tile links straight to its real workflow — no more hunting for it manually.'},
-    ];
-  } else {
-    eyebrow = 'New feature';
-    title = 'Share a link to any message';
-    items = [
-      {icon:'', t:'Look for the link icon', d:'On the Messages Library tab, every message card has a small  in the top-right corner.'},
-      {icon:'', t:'Click it to copy a link', d:'That link goes straight to this exact message — no need to explain which tab, filter, or event to click through.'},
-      {icon:'', t:'Try it', d:'Send it in Teams, drop it in a ticket, or paste it into a doc — whoever opens it lands on the message, already expanded.'},
-    ];
-  }
-
-  const itemsHtml = items.map(function(it){
-    return '<div class="onboard-item">'
-      + '<div><div class="onboard-item-title">'+it.t+'</div><div class="onboard-item-desc">'+it.d+'</div></div></div>';
-  }).join('');
-
-  overlay.innerHTML = '<div class="onboard-modal">'
-    + '<div class="onboard-hdr"><div class="onboard-eyebrow">'+eyebrow+'</div><div class="onboard-title">'+title+'</div></div>'
-    + '<div class="onboard-body">'+itemsHtml+'</div>'
-    + '<div class="onboard-footer"><button class="onboard-btn" onclick="dismissOnboarding()">Got it</button></div>'
-    + '</div>';
-
-  document.body.appendChild(overlay);
-}
-
-function dismissOnboarding(){
-  const overlay = document.querySelector('.onboard-overlay');
-  if(overlay) overlay.remove();
-}
-
-function checkOnboarding(){
-  let stored = null;
-  try { stored = localStorage.getItem(ONBOARD_KEY); } catch(e){ stored = null; }
-  const curParts = APP_VERSION.split('.').map(function(n){ return parseInt(n,10)||0; });
-  let mode = null;
-  if(stored === null){
-    mode = 'first';
-  } else {
-    const sParts = stored.split('.').map(function(n){ return parseInt(n,10)||0; });
-    if(sParts[0] < curParts[0]) mode = 'whatsnew';
-    else if(sParts[0] === curParts[0] && sParts[1] < curParts[1]) mode = 'feature';
-  }
-  if(mode) renderOnboardingModal(mode);
-  try { localStorage.setItem(ONBOARD_KEY, APP_VERSION); } catch(e){}
-}
-
 /* ── OPT-IN RATES ── */
 const OPTIN_CHANNELS = [
   {key:'Email', mkt:'mktEmailPct', svc:'svcEmailPct', mktN:'mktEmail', svcN:'svcEmail', color:'var(--em)'},
@@ -3299,9 +3210,7 @@ document.body.classList.toggle('brand-xe', activeBrand === 'xe');
 document.querySelectorAll('#hub-mode-toggle .brand-toggle-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.mode===hubMode); });
 const initialHubToggle = document.getElementById('hub-mode-toggle');
 if(initialHubToggle) initialHubToggle.classList.toggle('tools-active', hubMode === 'tools');
-const initialBrandToggleEl = document.getElementById('brand-toggle');
 const initialAudSwitcherEl = document.getElementById('audience-switcher');
-if(initialBrandToggleEl) initialBrandToggleEl.style.display = hubMode === 'tools' ? 'none' : 'flex';
 if(initialAudSwitcherEl) initialAudSwitcherEl.style.display = hubMode === 'tools' ? 'none' : 'flex';
 document.querySelectorAll('#brand-toggle .brand-toggle-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.brand===activeBrand); });
 const initialBrandToggle = document.getElementById('brand-toggle');
@@ -3315,7 +3224,7 @@ if(initialAudSwitcher){
 updateAudienceLabels(activeBrand);
 renderSidebarNav();
 buildIntentBar();
-if(hubMode !== 'tools' && activeBrand === 'xe'){
+if(activeBrand === 'xe'){
   renderXePlaceholder();
 } else {
   activateNavTabFor(activeTab);
@@ -3324,7 +3233,6 @@ if(hubMode !== 'tools' && activeBrand === 'xe'){
 
 // Load sheet data after initial render
 loadSheetData();
-checkOnboarding();
 </script>
 </body>
 </html>
