@@ -108,6 +108,21 @@ body.brand-xe{--orange:#1B57D6;--orange-bg:#E8EEFB;--orange-dim:#1846AD;--purple
 .optin-legend-item{display:flex;align-items:center;gap:6px;}
 .optin-banner{background:var(--orange-bg);border:1px solid var(--orange);color:var(--orange-dim);border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:16px;line-height:1.5;}
 .optin-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.optin-country-dropdown{position:relative;}
+.optin-country-dropdown summary{list-style:none;cursor:pointer;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;min-width:180px;}
+.optin-country-dropdown summary::-webkit-details-marker{display:none;}
+.optin-country-dropdown summary::after{content:'▾';color:var(--hint);font-size:10px;margin-left:auto;}
+.optin-country-dropdown[open] summary::after{content:'▴';}
+.optin-country-panel{position:absolute;top:calc(100% + 6px);left:0;z-index:30;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);width:280px;padding:10px;}
+.optin-country-panel input[type="text"]{width:100%;box-sizing:border-box;padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);margin-bottom:8px;}
+.optin-country-alloption{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;padding:6px 4px;border-bottom:1px solid var(--border);margin-bottom:6px;cursor:pointer;}
+.optin-country-list{max-height:220px;overflow-y:auto;}
+.optin-country-row{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:4px;border-radius:5px;cursor:pointer;}
+.optin-country-row:hover{background:var(--bg);}
+.optin-country-row input[type="checkbox"]{flex-shrink:0;}
+.optin-country-cap-note{font-size:10.5px;color:var(--muted);margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
+.optin-compare-legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+.optin-compare-legend .optin-legend-item{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11.5px;font-weight:600;color:var(--text);}
 .optin-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);}
 .optin-table{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap;}
 .optin-table th{text-align:right;padding:9px 14px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--hint);border-bottom:1px solid var(--border);cursor:pointer;user-select:none;}
@@ -2862,8 +2877,25 @@ const OPTIN_CHANNELS = [
   {key:'SMS', mkt:'mktSmsPct', svc:'svcSmsPct', mktN:'mktSms', svcN:'svcSms', color:'var(--sms)'},
   {key:'WhatsApp', mkt:'mktWaPct', svc:'svcWaPct', mktN:'mktWa', svcN:'svcWa', color:'var(--wa)'},
 ];
-let p8Country = 'all'; // 'all' or a country code
+let p8Selected = []; // array of country codes; empty = "all countries (global)"
+let p8DropdownOpen = false;
+let p8SearchTerm = '';
 window._optinSort = {col:'total', dir:'desc'};
+
+// Fixed-order categorical palette (validated for small-multiples comparison) —
+// assigned to countries in selection order and never reassigned while a
+// country stays selected, so removing one country never repaints the others.
+const OPTIN_PALETTE = ['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300','#4a3aa7','#e34948'];
+const OPTIN_COMPARE_CAP = OPTIN_PALETTE.length; // max countries comparable at once
+window._optinColorMap = window._optinColorMap || {};
+function optinColorFor(code){
+  if(!window._optinColorMap[code]){
+    const used = Object.keys(window._optinColorMap).map(function(k){ return window._optinColorMap[k]; });
+    const free = OPTIN_PALETTE.filter(function(c){ return used.indexOf(c)===-1; })[0];
+    window._optinColorMap[code] = free || OPTIN_PALETTE[OPTIN_PALETTE.length-1];
+  }
+  return window._optinColorMap[code];
+}
 
 function optinFormatM(n){
   if(n===undefined||n===null) return '—';
@@ -2917,9 +2949,52 @@ function optinStatTile(label, value, sub, color){
     + '</div>';
 }
 
-window.setP8Country = function(val){
-  p8Country = val;
+// Shared trend-card renderer — used both for the single 3-channel chart
+// (global / one country) and the per-channel small multiples (comparing
+// several countries). seriesDefs need only {key, color}; getValue(snap, s)
+// returns the % for that series on that snapshot (undefined if missing).
+function optinRenderTrendCard(title, oneDayNote, snaps, seriesDefs, getValue){
+  if(snaps.length < 2){
+    return '<div class="optin-chart-card"><div class="optin-chart-title">'+title+'</div>'
+      + '<div class="optin-chart-note">'+oneDayNote+'</div>'
+      + '<div style="display:flex;gap:24px;flex-wrap:wrap;">'
+      + seriesDefs.map(function(s){
+          const sv = snaps.length ? getValue(snaps[0], s) : undefined;
+          return '<div style="font-size:12px;"><span class="optin-swatch" style="background:'+s.color+'"></span> '+esc(s.key)+' — '+(sv||0).toFixed(1)+'%</div>';
+        }).join('')
+      + '</div></div>';
+  }
+  return '<div class="optin-chart-card"><div class="optin-chart-title">'+title+'</div>'
+    + optinTrendSVG(snaps, seriesDefs, {getValue:getValue}) + optinLegend(seriesDefs) + '</div>';
+}
+
+window.setP8All = function(){
+  p8Selected = [];
   renderOptin();
+};
+
+window.toggleP8Country = function(code, checked){
+  if(checked){
+    if(p8Selected.indexOf(code)===-1){
+      if(p8Selected.length >= OPTIN_COMPARE_CAP) return; // cap guard — checkbox should already be disabled
+      p8Selected.push(code);
+      optinColorFor(code); // assign a stable color slot now, on first selection
+    }
+  } else {
+    p8Selected = p8Selected.filter(function(c){ return c!==code; });
+  }
+  renderOptin();
+};
+
+window.filterP8CountryList = function(term){
+  p8SearchTerm = term;
+  const list = document.getElementById('p8-country-list');
+  if(!list) return;
+  const t = term.trim().toLowerCase();
+  Array.prototype.forEach.call(list.querySelectorAll('.optin-country-row'), function(row){
+    const name = (row.getAttribute('data-name')||'');
+    row.style.display = (!t || name.indexOf(t)!==-1) ? '' : 'none';
+  });
 };
 
 window.optinSortBy = function(col){
@@ -2966,16 +3041,39 @@ async function renderOptin(){
       + '. The global figures above are unaffected (they come from the dashboard\'s own header tiles, not the scrollable table).</div>';
   }
 
-  // Toolbar: country selector
-  html += '<div class="optin-toolbar"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Country:</span>'
-    + '<select id="p8-country-select" class="p1-filter-select" onchange="setP8Country(this.value)">'
-    + '<option value="all"'+(p8Country==='all'?' selected':'')+'>All countries (global)</option>'
-    + countryOpts.map(function(code){ return '<option value="'+code+'"'+(p8Country===code?' selected':'')+'>'+esc(countryMap[code])+'</option>'; }).join('')
-    + '</select></div>';
+  // Toolbar: country selector — a checkbox dropdown ("All countries" + one
+  // checkbox per country) so several specific countries can be compared at once.
+  const hasSelection = p8Selected.length > 0;
+  const atCap = p8Selected.length >= OPTIN_COMPARE_CAP;
+  let summaryText;
+  if(!hasSelection) summaryText = 'All countries (global)';
+  else if(p8Selected.length===1) summaryText = esc(countryMap[p8Selected[0]]||p8Selected[0]);
+  else {
+    const names = p8Selected.map(function(c){ return countryMap[c]||c; });
+    summaryText = p8Selected.length+' selected: '+esc(names.slice(0,3).join(', '))+(names.length>3?' +'+(names.length-3)+' more':'');
+  }
+  html += '<div class="optin-toolbar"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Countries:</span>'
+    + '<details class="optin-country-dropdown" id="p8-dropdown" '+(p8DropdownOpen?'open':'')+' ontoggle="p8DropdownOpen=this.open;">'
+    + '<summary>'+summaryText+'</summary>'
+    + '<div class="optin-country-panel">'
+    + '<div class="optin-country-alloption" onclick="setP8All()"><input type="checkbox" '+(!hasSelection?'checked':'')+' onclick="event.stopPropagation();setP8All();" readonly> All countries (global)</div>'
+    + '<input type="text" placeholder="Search countries…" value="'+esc(p8SearchTerm)+'" oninput="filterP8CountryList(this.value)">'
+    + '<div class="optin-country-list" id="p8-country-list">'
+    + countryOpts.map(function(code){
+        const checked = p8Selected.indexOf(code)!==-1;
+        const disable = (!checked && atCap) ? ' disabled' : '';
+        const swatch = checked ? '<span class="optin-swatch" style="background:'+optinColorFor(code)+'"></span>' : '';
+        return '<label class="optin-country-row" data-name="'+esc(countryMap[code].toLowerCase())+'">'
+          + '<input type="checkbox" '+(checked?'checked':'')+disable+' onchange="toggleP8Country(\''+code+'\', this.checked)"> '+swatch+esc(countryMap[code])
+          + '</label>';
+      }).join('')
+    + '</div>'
+    + (atCap ? '<div class="optin-country-cap-note">Comparing '+OPTIN_COMPARE_CAP+' countries at once (the max we can show clearly) — deselect one to add another.</div>' : '')
+    + '</div></details></div>';
 
-  // ── Stat tiles + trend source (Service opt-in only — Marketing dropped per Paul's call) ──
-  let statRow, trendSnaps, trendLabel;
-  if(p8Country==='all'){
+  // ── Stat tiles (skipped when comparing 2+ countries — the table below covers it) ──
+  let statRow = '';
+  if(!hasSelection){
     const g = latest.global||{};
     statRow = '<div class="optin-stat-row">'
       + optinStatTile('Total customers', optinFormatM(g.totalCustomers))
@@ -2983,10 +3081,9 @@ async function renderOptin(){
       + optinStatTile('SVC SMS', optinFormatM(g.svcSms), (g.svcSmsPct||0).toFixed(1)+'%', 'var(--sms)')
       + optinStatTile('SVC WhatsApp', optinFormatM(g.svcWa), (g.svcWaPct||0).toFixed(1)+'%', 'var(--wa)')
       + '</div>';
-    trendSnaps = snapshots;
-    trendLabel = 'Global';
-  } else {
-    const rows = snapshots.map(function(s){ return {date:s.date, row:(s.countries||[]).find(function(c){ return c.code===p8Country; })}; }).filter(function(r){ return r.row; });
+  } else if(p8Selected.length===1){
+    const code = p8Selected[0];
+    const rows = snapshots.map(function(s){ return {date:s.date, row:(s.countries||[]).find(function(c){ return c.code===code; })}; }).filter(function(r){ return r.row; });
     const lastRow = rows.length ? rows[rows.length-1].row : null;
     if(lastRow){
       statRow = '<div class="optin-stat-row">'
@@ -2996,36 +3093,43 @@ async function renderOptin(){
         + optinStatTile('SVC WhatsApp', optinFormatM(lastRow.svcWa), (lastRow.svcWaPct||0).toFixed(1)+'%', 'var(--wa)')
         + '</div>';
     } else {
-      statRow = '<div class="optin-banner">No captured data for '+esc(countryMap[p8Country]||p8Country)+' yet.</div>';
+      statRow = '<div class="optin-banner">No captured data for '+esc(countryMap[code]||code)+' yet.</div>';
     }
-    trendSnaps = rows.map(function(r){ return {date:r.date, row:r.row}; });
-    trendLabel = countryMap[p8Country]||p8Country;
+  } else {
+    statRow = '<div class="optin-compare-legend">' + p8Selected.map(function(code){
+        const lastRow = (latest.countries||[]).find(function(c){ return c.code===code; });
+        const totalTxt = lastRow ? optinFormatM(lastRow.total) : 'no data '+latest.date;
+        return '<span class="optin-legend-item"><span class="optin-swatch" style="background:'+optinColorFor(code)+'"></span>'+esc(countryMap[code]||code)+' — '+totalTxt+'</span>';
+      }).join('') + '</div>';
   }
   html += statRow;
 
-  // ── Trend chart (Service opt-in % — Email/SMS/WhatsApp) ──
-  const getSvc = p8Country==='all'
-    ? function(snap,s){ return (snap.global||{})[s.svc]; }
-    : function(snap,s){ return (snap.row||{})[s.svc]; };
-
-  if(trendSnaps.length < 2){
-    html += '<div class="optin-chart-card"><div class="optin-chart-title">'+trendLabel+' Service opt-in % — trend</div>'
-      + '<div class="optin-chart-note">Only one day captured so far for '+trendLabel+' — the trend line appears once a second day is added.</div>'
-      + '<div style="display:flex;gap:24px;flex-wrap:wrap;">'
-      + OPTIN_CHANNELS.map(function(s){
-          const sv = getSvc(trendSnaps[0], s);
-          return '<div style="font-size:12px;"><span class="optin-swatch" style="background:'+s.color+'"></span> '+s.key+' — '+(sv||0).toFixed(1)+'%</div>';
-        }).join('')
-      + '</div></div>';
+  // ── Trend chart(s) (Service opt-in % — Email/SMS/WhatsApp) ──
+  if(!hasSelection){
+    const getSvc = function(snap,s){ return (snap.global||{})[s.svc]; };
+    html += optinRenderTrendCard('Global Service opt-in % — trend', 'Only one day captured so far — the trend line appears once a second day is added.', snapshots, OPTIN_CHANNELS, getSvc);
+  } else if(p8Selected.length===1){
+    const code = p8Selected[0];
+    const rows = snapshots.map(function(s){ return {date:s.date, row:(s.countries||[]).find(function(c){ return c.code===code; })}; }).filter(function(r){ return r.row; });
+    const trendSnaps = rows.map(function(r){ return {date:r.date, row:r.row}; });
+    const getSvc = function(snap,s){ return (snap.row||{})[s.svc]; };
+    html += optinRenderTrendCard((countryMap[code]||code)+' Service opt-in % — trend', 'Only one day captured so far for '+esc(countryMap[code]||code)+' — the trend line appears once a second day is added.', trendSnaps, OPTIN_CHANNELS, getSvc);
   } else {
-    html += '<div class="optin-chart-card"><div class="optin-chart-title">'+trendLabel+' Service opt-in % — trend</div>'
-      + optinTrendSVG(trendSnaps, OPTIN_CHANNELS, {getValue:getSvc}) + optinLegend(OPTIN_CHANNELS) + '</div>';
+    // Compare mode: one small-multiple chart per channel, one line per selected country.
+    const seriesDefs = p8Selected.map(function(code){ return {key: countryMap[code]||code, color: optinColorFor(code), code: code}; });
+    OPTIN_CHANNELS.forEach(function(ch){
+      const getValue = function(snap, s){
+        const row = (snap.countries||[]).find(function(c){ return c.code===s.code; });
+        return row ? row[ch.svc] : undefined;
+      };
+      html += optinRenderTrendCard(ch.key+' Service opt-in % — trend (by country)', 'Only one day captured so far — the trend line appears once a second day is added.', snapshots, seriesDefs, getValue);
+    });
   }
 
   // ── Country table (latest day, Service columns only) ──
   const sortCol = window._optinSort.col, sortDir = window._optinSort.dir;
   let tableRows = (latest.countries||[]).slice();
-  if(p8Country!=='all') tableRows = tableRows.filter(function(c){ return c.code===p8Country; });
+  if(hasSelection) tableRows = tableRows.filter(function(c){ return p8Selected.indexOf(c.code)!==-1; });
   tableRows.sort(function(a,b){
     var av,bv;
     if(sortCol==='country'){ av=a.name; bv=b.name; return sortDir==='asc'?av.localeCompare(bv):bv.localeCompare(av); }
@@ -3043,7 +3147,8 @@ async function renderOptin(){
       }).join('')
     + '</tr></thead><tbody>'
     + tableRows.map(function(c){
-        return '<tr><td style="font-weight:600;">'+esc(c.name)+'</td>'
+        const dot = (hasSelection && p8Selected.length>1) ? '<span class="optin-swatch" style="background:'+optinColorFor(c.code)+';margin-right:6px;"></span>' : '';
+        return '<tr><td style="font-weight:600;">'+dot+esc(c.name)+'</td>'
           + '<td>'+(c.total||0).toLocaleString('en-US')+'</td>'
           + '<td>'+(c.svcEmailPct||0).toFixed(2)+'%</td>'
           + '<td>'+(c.svcSmsPct||0).toFixed(2)+'%</td>'
@@ -3052,10 +3157,12 @@ async function renderOptin(){
       }).join('')
     + '</tbody></table></div>';
   if(!tableRows.length){
-    html += '<div class="empty-intent" style="margin-top:14px;"><div class="empty-intent-title">No country-level row for '+esc(countryMap[p8Country]||p8Country)+' on '+latest.date+'</div></div>';
+    const missingNames = hasSelection ? p8Selected.map(function(c){ return countryMap[c]||c; }).join(', ') : '';
+    html += '<div class="empty-intent" style="margin-top:14px;"><div class="empty-intent-title">No country-level row for '+esc(missingNames)+' on '+latest.date+'</div></div>';
   }
 
   container.innerHTML = html;
+  filterP8CountryList(p8SearchTerm); // reapply the search filter on the freshly-rendered checkbox list
 }
 
 /* ── INIT ── */
