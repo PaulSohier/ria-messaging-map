@@ -70,6 +70,28 @@ Sheet structure mirrors the library exactly:
 
 The dashboard shows a one-time welcome message to first-time visitors. Returning users get a callout whenever something worth knowing has shipped since their last visit — a fuller "what's new" recap if they're coming from before the V4 redesign, or a lighter single-feature spotlight for smaller additions (e.g. the message share-link). Nothing repeats once dismissed for that version — this is tracked per-browser via local storage, keyed to the app version.
 
+## Opt-in rates (new — Aug 2026)
+
+The **Opt-in rates** tab reads `data/optin-daily.json`, one entry per day (global figures — always complete — plus a per-country breakdown). It's designed to be filled in one of two ways:
+
+1. **Automated (goal state):** `scripts/pull-optin-data.js`, run daily by `.github/workflows/pull-optin-data.yml`, calls the Power BI **Execute Queries** REST API against the dataset behind the Opt-in report and appends a new snapshot automatically — no manual capture. **Not live yet** — it needs Power BI access set up first (see checklist below), and it's untested against the real API since there are no credentials on file. Run it once by hand via `workflow_dispatch` and check `data/optin-daily.json` closely before trusting the schedule.
+2. **Manual fallback:** screenshot the Opt-in PowerBI dashboard (header tiles at minimum, full country table if there's time), paste into a Claude chat, and ask it to append a new entry to `data/optin-daily.json` following the existing shape.
+
+### Setup checklist to go live with the automated pull
+
+Needs someone with Power BI tenant-admin rights (likely IT/data team, not Care/CX):
+
+- [ ] Register a Microsoft Entra (Azure AD) app for this integration — note its **App ID**.
+- [ ] Create a Microsoft Entra **security group**, add the app as a member.
+- [ ] Add that app as a member (Viewer is enough) of the Power BI **workspace** containing the Opt-in dataset.
+- [ ] In the Power BI Admin Portal → Tenant settings → Integration settings, enable **"Dataset Execute Queries REST API"**, scoped to the security group above.
+- [ ] Get the **Dataset ID** behind the Opt-in report (Workspace → dataset settings, or the `Get Datasets` API).
+- [ ] Confirm the real table/measure names behind the report's visual (Power BI Desktop → Performance Analyzer → copy query, or DAX Studio) and update `POWERBI_DAX_QUERY` if the placeholder in `pull-optin-data.js` doesn't match — it's a best-guess from the screenshot, not confirmed against the actual model.
+- [ ] Add repo secrets: `POWERBI_TENANT_ID`, `POWERBI_CLIENT_ID`, `POWERBI_CLIENT_SECRET`, `POWERBI_DATASET_ID`, and optionally `POWERBI_DAX_QUERY` if it needs to differ from the script's default.
+- [ ] Run the workflow manually (`workflow_dispatch`) and check the committed `data/optin-daily.json` before relying on the daily schedule.
+
+**Note:** this is the same technical shape as **CGD-5905** ("PowerBI | B&M Messaging Cost, Delivery & Activation Tracking"), which was scoped and then cancelled. Worth checking why before assuming this smaller version clears the same access/security bar.
+
 ## How to update the dashboard interface
 
 Replace `index.html` in this repository with the new version. The URL stays the same.

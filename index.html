@@ -93,6 +93,26 @@ body.brand-xe{--orange:#1B57D6;--orange-bg:#E8EEFB;--orange-dim:#1846AD;--purple
 .search-input:focus{border-color:var(--purple);}
 .search-input::placeholder{color:var(--hint);}
 .search-icon{position:absolute;left:10px;font-size:12px;color:var(--hint);pointer-events:none;}
+
+/* OPT-IN */
+.optin-stat-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px;}
+.optin-stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;min-width:128px;flex:1;}
+.optin-stat-label{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.optin-stat-value{font-size:19px;font-weight:800;color:var(--text);}
+.optin-stat-sub{font-size:10.5px;color:var(--muted);margin-top:2px;}
+.optin-swatch{width:8px;height:8px;border-radius:2px;display:inline-block;flex-shrink:0;}
+.optin-chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:18px;}
+.optin-chart-title{font-size:13px;font-weight:700;margin-bottom:2px;}
+.optin-chart-note{font-size:11px;color:var(--muted);margin-bottom:12px;}
+.optin-legend{display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--muted);flex-wrap:wrap;}
+.optin-legend-item{display:flex;align-items:center;gap:6px;}
+.optin-banner{background:var(--orange-bg);border:1px solid var(--orange);color:var(--orange-dim);border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:16px;line-height:1.5;}
+.optin-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+.optin-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);}
+.optin-table{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap;}
+.optin-table th{text-align:right;padding:9px 14px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--hint);border-bottom:1px solid var(--border);cursor:pointer;user-select:none;}
+.optin-table th:first-child,.optin-table td:first-child{text-align:left;}
+.optin-table td{padding:8px 14px;text-align:right;border-bottom:1px solid var(--border);color:var(--text);}
 .search-clear{position:absolute;right:6px;font-size:12px;color:var(--hint);cursor:pointer;padding:2px 6px;border-radius:50%;user-select:none;}
 .search-clear:hover{color:var(--text);background:var(--bg);}
 .search-count{font-size:11px;color:var(--hint);margin-left:10px;white-space:nowrap;}
@@ -448,6 +468,8 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 </div>
 </div>
 
+<div class="page" id="p8"><div class="page-title">Opt-in rates <span class="page-note" id="p8-page-note">Daily-captured from the Opt-in PowerBI dashboard — global or single country</span></div><div id="p8-content"></div></div>
+
 </div><!-- /main-content -->
 </div><!-- /app-shell -->
 
@@ -630,6 +652,9 @@ const NAV_CONFIG = {
       {id:'p1', icon:'', label:'Messages Library', badge:'b1'},
       {id:'p2', icon:'', label:'Customer journeys'},
     ]},
+    {section:'Opt-in', items:[
+      {id:'p8', icon:'', label:'Opt-in rates'},
+    ]},
     {section:'Cost Modeling', items:[
       {id:'p3', icon:'', label:'SMS cost calculator'},
       {id:'p5', icon:'', label:'Twilio SMS calculator'},
@@ -645,6 +670,9 @@ const NAV_CONFIG = {
       {id:'p0', icon:'', label:'Message flow map'},
       {id:'p1', icon:'', label:'Messages Library', badge:'b1'},
       {id:'p2', icon:'', label:'Customer journeys'},
+    ]},
+    {section:'Opt-in', items:[
+      {id:'p8', icon:'', label:'Opt-in rates'},
     ]},
   ],
 };
@@ -774,6 +802,7 @@ function renderPage(id){
   if(id==='p5') renderCalcTwilio();
   if(id==='p4') renderGlobalCost();
   if(id==='p6') renderGlobalCostTwilio();
+  if(id==='p8') renderOptin();
 }
 
 /* ── GLOBAL DEPLOYMENT COST ── */
@@ -2825,6 +2854,208 @@ function checkOnboarding(){
   }
   if(mode) renderOnboardingModal(mode);
   try { localStorage.setItem(ONBOARD_KEY, APP_VERSION); } catch(e){}
+}
+
+/* ── OPT-IN RATES ── */
+const OPTIN_CHANNELS = [
+  {key:'Email', mkt:'mktEmailPct', svc:'svcEmailPct', mktN:'mktEmail', svcN:'svcEmail', color:'var(--em)'},
+  {key:'SMS', mkt:'mktSmsPct', svc:'svcSmsPct', mktN:'mktSms', svcN:'svcSms', color:'var(--sms)'},
+  {key:'WhatsApp', mkt:'mktWaPct', svc:'svcWaPct', mktN:'mktWa', svcN:'svcWa', color:'var(--wa)'},
+];
+let p8Country = 'all'; // 'all' or a country code
+window._optinSort = {col:'total', dir:'desc'};
+
+function optinFormatM(n){
+  if(n===undefined||n===null) return '—';
+  if(Math.abs(n) >= 1e6) return (n/1e6).toFixed(2)+'M';
+  if(Math.abs(n) >= 1e3) return (n/1e3).toFixed(1)+'k';
+  return String(n);
+}
+
+function optinTrendSVG(snapshots, seriesDefs, opts){
+  opts = opts || {};
+  const w = 680, h = 190, padL=34, padR=14, padT=14, padB=24;
+  const n = snapshots.length;
+  const plotW = w-padL-padR, plotH = h-padT-padB;
+  const xAt = i => n<=1 ? padL+plotW/2 : padL + (i/(n-1))*plotW;
+  const yAt = v => padT + (1-Math.max(0,Math.min(100,v||0))/100)*plotH;
+
+  let svg = '<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:'+h+'px;overflow:visible;display:block;">';
+  [0,25,50,75,100].forEach(function(gv){
+    svg += '<line x1="'+padL+'" x2="'+(w-padR)+'" y1="'+yAt(gv)+'" y2="'+yAt(gv)+'" stroke="var(--border)" stroke-width="1"/>';
+    svg += '<text x="'+(padL-8)+'" y="'+(yAt(gv)+3)+'" text-anchor="end" font-size="9" fill="var(--hint)">'+gv+'%</text>';
+  });
+  seriesDefs.forEach(function(s){
+    const pts = snapshots.map(function(snap,i){ return {x:xAt(i), y:yAt(opts.getValue(snap,s)), v:opts.getValue(snap,s)}; });
+    if(n===1){
+      svg += '<circle cx="'+pts[0].x+'" cy="'+pts[0].y+'" r="5" style="fill:'+s.color+'"/>';
+      svg += '<text x="'+(pts[0].x+10)+'" y="'+(pts[0].y+3)+'" font-size="10" font-weight="700" style="fill:'+s.color+'">'+(pts[0].v||0).toFixed(1)+'%</text>';
+    } else {
+      const d = pts.map(function(p,i){ return (i===0?'M':'L')+p.x.toFixed(1)+','+p.y.toFixed(1); }).join(' ');
+      svg += '<path d="'+d+'" fill="none" style="stroke:'+s.color+'" stroke-width="2" stroke-linecap="round"/>';
+      pts.forEach(function(p){ svg += '<circle cx="'+p.x+'" cy="'+p.y+'" r="3" style="fill:'+s.color+'"><title>'+s.key+': '+(p.v||0).toFixed(1)+'%</title></circle>'; });
+    }
+  });
+  if(n>=1){
+    svg += '<text x="'+xAt(0)+'" y="'+(h-6)+'" text-anchor="'+(n===1?'middle':'start')+'" font-size="9" fill="var(--hint)">'+snapshots[0].date+'</text>';
+    if(n>1) svg += '<text x="'+xAt(n-1)+'" y="'+(h-6)+'" text-anchor="end" font-size="9" fill="var(--hint)">'+snapshots[n-1].date+'</text>';
+  }
+  svg += '</svg>';
+  return svg;
+}
+
+function optinLegend(seriesDefs){
+  return '<div class="optin-legend">'+seriesDefs.map(function(s){
+    return '<div class="optin-legend-item"><span class="optin-swatch" style="background:'+s.color+'"></span>'+s.key+'</div>';
+  }).join('')+'</div>';
+}
+
+function optinStatTile(label, value, sub, color){
+  return '<div class="optin-stat"><div class="optin-stat-label">'+(color?'<span class="optin-swatch" style="background:'+color+'"></span>':'')+label+'</div>'
+    + '<div class="optin-stat-value">'+value+'</div>'
+    + (sub?'<div class="optin-stat-sub">'+sub+'</div>':'')
+    + '</div>';
+}
+
+window.setP8Country = function(val){
+  p8Country = val;
+  renderOptin();
+};
+
+window.optinSortBy = function(col){
+  if(window._optinSort.col===col){ window._optinSort.dir = window._optinSort.dir==='desc'?'asc':'desc'; }
+  else { window._optinSort.col = col; window._optinSort.dir = col==='country'?'asc':'desc'; }
+  renderOptin();
+};
+
+async function renderOptin(){
+  const container = document.getElementById('p8-content');
+  container.innerHTML = '<div style="padding:60px;text-align:center;color:var(--muted);font-size:13px;">Loading opt-in data…</div>';
+
+  let data;
+  try {
+    const res = await fetch('data/optin-daily.json');
+    if(!res.ok) throw new Error('fetch failed: '+res.status);
+    data = await res.json();
+  } catch(e){
+    container.innerHTML = '<div class="empty-intent"><div class="empty-intent-title">Could not load opt-in data</div>'
+      + '<div class="empty-intent-sub">Check that data/optin-daily.json exists on this branch.</div></div>';
+    return;
+  }
+
+  const snapshots = (data.snapshots||[]).slice().sort(function(a,b){ return a.date.localeCompare(b.date); });
+  if(!snapshots.length){
+    container.innerHTML = '<div class="empty-intent"><div class="empty-intent-title">No opt-in captures yet</div>'
+      + '<div class="empty-intent-sub">The first daily screenshot will show up here once it\'s captured.</div></div>';
+    return;
+  }
+  const latest = snapshots[snapshots.length-1];
+  const pageNote = document.getElementById('p8-page-note');
+  if(pageNote) pageNote.textContent = snapshots.length+' day'+(snapshots.length!==1?'s':'')+' captured · latest: '+latest.date;
+
+  // Country options come from whichever snapshot has the fullest country list
+  const countryMap = {};
+  snapshots.forEach(function(s){ (s.countries||[]).forEach(function(c){ countryMap[c.code] = c.name; }); });
+  const countryOpts = Object.keys(countryMap).sort(function(a,b){ return countryMap[a].localeCompare(countryMap[b]); });
+
+  let html = '';
+
+  if(latest.countriesPartial){
+    html += '<div class="optin-banner">⚠ The country breakdown for '+latest.date+' is partial'
+      + (latest.countriesNote ? ' — '+esc(latest.countriesNote) : '')
+      + '. The global figures above are unaffected (they come from the dashboard\'s own header tiles, not the scrollable table).</div>';
+  }
+
+  // Toolbar: country selector
+  html += '<div class="optin-toolbar"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Country:</span>'
+    + '<select id="p8-country-select" class="p1-filter-select" onchange="setP8Country(this.value)">'
+    + '<option value="all"'+(p8Country==='all'?' selected':'')+'>All countries (global)</option>'
+    + countryOpts.map(function(code){ return '<option value="'+code+'"'+(p8Country===code?' selected':'')+'>'+esc(countryMap[code])+'</option>'; }).join('')
+    + '</select></div>';
+
+  // ── Stat tiles + trend source (Service opt-in only — Marketing dropped per Paul's call) ──
+  let statRow, trendSnaps, trendLabel;
+  if(p8Country==='all'){
+    const g = latest.global||{};
+    statRow = '<div class="optin-stat-row">'
+      + optinStatTile('Total customers', optinFormatM(g.totalCustomers))
+      + optinStatTile('SVC Email', optinFormatM(g.svcEmail), (g.svcEmailPct||0).toFixed(1)+'%', 'var(--em)')
+      + optinStatTile('SVC SMS', optinFormatM(g.svcSms), (g.svcSmsPct||0).toFixed(1)+'%', 'var(--sms)')
+      + optinStatTile('SVC WhatsApp', optinFormatM(g.svcWa), (g.svcWaPct||0).toFixed(1)+'%', 'var(--wa)')
+      + '</div>';
+    trendSnaps = snapshots;
+    trendLabel = 'Global';
+  } else {
+    const rows = snapshots.map(function(s){ return {date:s.date, row:(s.countries||[]).find(function(c){ return c.code===p8Country; })}; }).filter(function(r){ return r.row; });
+    const lastRow = rows.length ? rows[rows.length-1].row : null;
+    if(lastRow){
+      statRow = '<div class="optin-stat-row">'
+        + optinStatTile('Total customers', optinFormatM(lastRow.total))
+        + optinStatTile('SVC Email', optinFormatM(lastRow.svcEmail), (lastRow.svcEmailPct||0).toFixed(1)+'%', 'var(--em)')
+        + optinStatTile('SVC SMS', optinFormatM(lastRow.svcSms), (lastRow.svcSmsPct||0).toFixed(1)+'%', 'var(--sms)')
+        + optinStatTile('SVC WhatsApp', optinFormatM(lastRow.svcWa), (lastRow.svcWaPct||0).toFixed(1)+'%', 'var(--wa)')
+        + '</div>';
+    } else {
+      statRow = '<div class="optin-banner">No captured data for '+esc(countryMap[p8Country]||p8Country)+' yet.</div>';
+    }
+    trendSnaps = rows.map(function(r){ return {date:r.date, row:r.row}; });
+    trendLabel = countryMap[p8Country]||p8Country;
+  }
+  html += statRow;
+
+  // ── Trend chart (Service opt-in % — Email/SMS/WhatsApp) ──
+  const getSvc = p8Country==='all'
+    ? function(snap,s){ return (snap.global||{})[s.svc]; }
+    : function(snap,s){ return (snap.row||{})[s.svc]; };
+
+  if(trendSnaps.length < 2){
+    html += '<div class="optin-chart-card"><div class="optin-chart-title">'+trendLabel+' Service opt-in % — trend</div>'
+      + '<div class="optin-chart-note">Only one day captured so far for '+trendLabel+' — the trend line appears once a second day is added.</div>'
+      + '<div style="display:flex;gap:24px;flex-wrap:wrap;">'
+      + OPTIN_CHANNELS.map(function(s){
+          const sv = getSvc(trendSnaps[0], s);
+          return '<div style="font-size:12px;"><span class="optin-swatch" style="background:'+s.color+'"></span> '+s.key+' — '+(sv||0).toFixed(1)+'%</div>';
+        }).join('')
+      + '</div></div>';
+  } else {
+    html += '<div class="optin-chart-card"><div class="optin-chart-title">'+trendLabel+' Service opt-in % — trend</div>'
+      + optinTrendSVG(trendSnaps, OPTIN_CHANNELS, {getValue:getSvc}) + optinLegend(OPTIN_CHANNELS) + '</div>';
+  }
+
+  // ── Country table (latest day, Service columns only) ──
+  const sortCol = window._optinSort.col, sortDir = window._optinSort.dir;
+  let tableRows = (latest.countries||[]).slice();
+  if(p8Country!=='all') tableRows = tableRows.filter(function(c){ return c.code===p8Country; });
+  tableRows.sort(function(a,b){
+    var av,bv;
+    if(sortCol==='country'){ av=a.name; bv=b.name; return sortDir==='asc'?av.localeCompare(bv):bv.localeCompare(av); }
+    av = a[sortCol]||0; bv = b[sortCol]||0;
+    return sortDir==='asc'? av-bv : bv-av;
+  });
+  const cols = [
+    {key:'country', label:'Country'},{key:'total', label:'Total'},
+    {key:'svcEmailPct', label:'Email %'},{key:'svcSmsPct', label:'SMS %'},{key:'svcWaPct', label:'WhatsApp %'},
+  ];
+  html += '<div class="optin-table-wrap"><table class="optin-table"><thead><tr>'
+    + cols.map(function(c){
+        const arrow = c.key===sortCol ? (sortDir==='desc'?' ↓':' ↑') : '';
+        return '<th onclick="optinSortBy(\''+c.key+'\')">'+c.label+arrow+'</th>';
+      }).join('')
+    + '</tr></thead><tbody>'
+    + tableRows.map(function(c){
+        return '<tr><td style="font-weight:600;">'+esc(c.name)+'</td>'
+          + '<td>'+(c.total||0).toLocaleString('en-US')+'</td>'
+          + '<td>'+(c.svcEmailPct||0).toFixed(2)+'%</td>'
+          + '<td>'+(c.svcSmsPct||0).toFixed(2)+'%</td>'
+          + '<td>'+(c.svcWaPct||0).toFixed(2)+'%</td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table></div>';
+  if(!tableRows.length){
+    html += '<div class="empty-intent" style="margin-top:14px;"><div class="empty-intent-title">No country-level row for '+esc(countryMap[p8Country]||p8Country)+' on '+latest.date+'</div></div>';
+  }
+
+  container.innerHTML = html;
 }
 
 /* ── INIT ── */
