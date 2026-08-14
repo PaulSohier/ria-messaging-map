@@ -17,6 +17,7 @@
   --sms:#1B5FA0;--sms-bg:#E9F1FA;--wa:#0F7A5C;--wa-bg:#E6F6F0;--em:#9A6512;--em-bg:#FCF1DE;
   --push:#6B3FA0;--push-bg:#F1EAFA;--inapp:#B23A6B;--inapp-bg:#FCEAF1;
   --live:#1E7A3C;--live-bg:#E9F6EC;--draft:#7D7F86;--draft-bg:#EFEFEC;
+  --critical:#D03B3B;--critical-bg:#FBEAEA;
 
   /* Primary accent now maps to Ria Orange instead of generic purple — most of the UI
      already threads its "accent" color through --purple/--purple-bg, so retheming here
@@ -169,6 +170,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 .t-agent{background:var(--wa-bg);color:var(--wa);}
 .t-entry{background:var(--em-bg);color:var(--em);}
 .t-sendto{background:#F1EFE8;color:#444441;}
+.t-oversize{background:var(--critical-bg);color:var(--critical);font-weight:700;}
 .ch-badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
 .ch-sms{background:var(--sms-bg);color:var(--sms);}
 .ch-wa{background:var(--wa-bg);color:var(--wa);}
@@ -1814,6 +1816,7 @@ function renderJourneys(){
           var msgShort = isLong ? rawMsg.substring(0,120)+'…' : rawMsg;
           // Tags — exact same as renderP1
           var tagsHtml = '';
+          tagsHtml += smsOversizeTag(m.channel, rawMsg);
           if(m.r1)                              tagsHtml += '<span class="tag t-region">'  + esc(m.r1)     + '</span>';
           if(m.entry  && m.entry  !== 'nan')    tagsHtml += '<span class="tag t-entry">'   + esc(m.entry)  + '</span>';
           if(m.sendTo && m.sendTo !== 'nan')    tagsHtml += '<span class="tag t-sendto">'  + esc(m.sendTo) + '</span>';
@@ -2036,6 +2039,20 @@ function renderFlow(){
 /* ─── PAGE 1: WHAT FIRES WHEN ─── */
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+// SMS billing units are 160 characters each — a message over that length is
+// charged as 2+ SMS. Flag it right in the tag row so it's visible without
+// opening the card. Character count is on the raw template text (including
+// merge fields like <Customer First Name>), same text the sheet stores —
+// not a simulation of the rendered/substituted message.
+const SMS_UNIT_CHARS = 160;
+function smsOversizeTag(channel, rawMsg){
+  if(channel !== 'SMS' || !rawMsg) return '';
+  const len = rawMsg.length;
+  if(len <= SMS_UNIT_CHARS) return '';
+  const units = Math.ceil(len / SMS_UNIT_CHARS);
+  return '<span class="tag t-oversize" title="'+len+' characters — billed as '+units+' SMS units at 160 chars each">&#128681; '+len+' ch. ('+units+' SMS)</span>';
+}
+
 let expandedCard = null;
 
 /* ── MESSAGE-LEVEL DEEP LINKS ── */
@@ -2193,6 +2210,7 @@ function renderP1(){
             var msgFull  = highlight(rawMsg, esc);
 
             var tagsHtml = '';
+            tagsHtml += smsOversizeTag(m.channel, rawMsg);
             if(region) tagsHtml += '<span class="tag t-region">' + esc(region) + '</span>';
             if(m.entry && m.entry!=='nan') tagsHtml += '<span class="tag t-entry">' + esc(m.entry) + '</span>';
             if(m.sendTo && m.sendTo!=='nan') tagsHtml += '<span class="tag t-sendto">' + esc(m.sendTo) + '</span>';
