@@ -19,6 +19,15 @@ on:
         required: false
         type: boolean
         default: false
+      category_filter:
+        description: 'On a full pull, only keep journeys under these categories (comma-separated, matches the Hub''s own category grouping). Leave as-is for Transactional + Transaction status only. Clear this field (blank) to keep every category.'
+        required: false
+        default: 'Transactional,Transaction status'
+      enabled_only:
+        description: 'On a full pull, only keep enabled journeys (skip disabled ones).'
+        required: false
+        type: boolean
+        default: true
 
 jobs:
   pull-data:
@@ -48,6 +57,8 @@ jobs:
           ITERABLE_API_KEY: ${{ github.event.inputs.environment == 'ria_digital_prod' && secrets.ITERABLE_RIA_PROD_API_KEY || secrets.ITERABLE_SANDBOX_API_KEY }}
           JOURNEY_IDS: ${{ github.event.inputs.journey_ids }}
           INCLUDE_STANDALONE: ${{ github.event.inputs.include_standalone_campaigns }}
+          CATEGORY_FILTER: ${{ github.event.inputs.category_filter }}
+          ENABLED_ONLY: ${{ github.event.inputs.enabled_only }}
           OUTPUT_FILE: ${{ steps.env.outputs.output_file }}
           SOURCE_LABEL: ${{ steps.env.outputs.source_label }}
         run: node scripts/pull-iterable-journeys.js
