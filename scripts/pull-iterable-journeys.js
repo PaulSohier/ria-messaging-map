@@ -109,6 +109,15 @@ function sleep(ms) {
 const REQUEST_DELAY_MS = 150;
 const MAX_RETRIES = 6;
 const REQUEST_TIMEOUT_MS = 30000;
+// /campaigns/metrics turned out (Sep 2026, live run against Ria Digital
+// Prod) to have a much stricter rate limit than the list/template endpoints
+// — nearly every single call was hitting 429 even with the 150ms general
+// spacing above, each one then burning up to ~30s in backoff retries before
+// succeeding. This extra, dedicated wait after every metrics call (on top
+// of the general one) is what actually keeps this endpoint under its limit
+// instead of retrying constantly. If real runs show this is still too
+// aggressive or unnecessarily conservative, this is the number to adjust.
+const METRICS_REQUEST_DELAY_MS = 2500;
 
 // Shared retry/timeout wrapper, returns the raw Response so callers decide
 // how to parse the body (most endpoints are JSON; /campaigns/metrics' raw
@@ -396,8 +405,10 @@ async function fetchCampaignMetrics(rawCampaign) {
     row = await iterableGetMetricsRow(path);
   } catch (err) {
     console.warn(`Could not fetch metrics for campaign ${rawCampaign.id}: ${err.message}`);
+    await sleep(METRICS_REQUEST_DELAY_MS); // still pace out even a failed attempt
     return null;
   }
+  await sleep(METRICS_REQUEST_DELAY_MS);
   return normalizeMetrics(rawCampaign.messageMedium, row);
 }
 
