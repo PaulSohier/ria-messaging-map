@@ -12,8 +12,13 @@ on:
           - sandbox
           - ria_digital_prod
       journey_ids:
-        description: 'Comma-separated Iterable journey IDs to pull. Leave blank to pull EVERYTHING (all journeys + standalone campaigns) for the selected environment. IDs are account-specific — do not reuse Sandbox IDs for a Prod run, or vice versa.'
+        description: 'Comma-separated Iterable journey IDs to pull. Leave blank to pull EVERYTHING (all journeys + standalone campaigns, if included below) for the selected environment. IDs are account-specific — do not reuse Sandbox IDs for a Prod run, or vice versa.'
         required: false
+      include_standalone_campaigns:
+        description: 'Also fetch template content for campaigns not tied to any journey (one-off Blast sends etc). Slower — this is the biggest chunk of a full pull. Off by default since the Hub does not need these right now.'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   pull-data:
@@ -42,6 +47,7 @@ jobs:
         env:
           ITERABLE_API_KEY: ${{ github.event.inputs.environment == 'ria_digital_prod' && secrets.ITERABLE_RIA_PROD_API_KEY || secrets.ITERABLE_SANDBOX_API_KEY }}
           JOURNEY_IDS: ${{ github.event.inputs.journey_ids }}
+          INCLUDE_STANDALONE: ${{ github.event.inputs.include_standalone_campaigns }}
           OUTPUT_FILE: ${{ steps.env.outputs.output_file }}
           SOURCE_LABEL: ${{ steps.env.outputs.source_label }}
         run: node scripts/pull-iterable-journeys.js
