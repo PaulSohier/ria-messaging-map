@@ -1,14 +1,23 @@
 name: Pull Iterable journey data
 
 on:
-  # Automatic: Ria Digital Prod only, once a day, same default settings as
-  # the manual run (enabled journeys, Transactional + Transaction status
-  # categories, no standalone campaigns). Sandbox stays manual-only (Paul,
-  # Sep 2026) — trigger it by hand via workflow_dispatch when testing.
-  # Cron is UTC. 4:00 UTC picked as a quiet, off-hours default; change the
-  # line below if a different time suits better, nothing else depends on it.
+  # Automatic, two schedules:
+  # - Ria Digital Prod: same default settings as the manual run (enabled
+  #   journeys, Transactional + Transaction status categories, no standalone
+  #   campaigns).
+  # - Xe Digital Prod: a fixed, hand-picked list of journey IDs (Paul chose
+  #   these directly in Iterable, Sep 2026 — Xe's campaigns don't use a
+  #   Transactional label/category the way Ria's do, so a category filter
+  #   would not work for Xe). See XE_JOURNEY_IDS in the "Select environment
+  #   config" step below for the actual list.
+  # Sandbox stays manual-only — trigger it by hand via workflow_dispatch
+  # when testing.
+  # Cron is UTC. 4:00 and 5:00 UTC picked as quiet, off-hours defaults, one
+  # hour apart so the two runs don't overlap; change the lines below if a
+  # different time suits better, nothing else depends on it.
   schedule:
     - cron: '0 4 * * *'
+    - cron: '0 5 * * *'
   workflow_dispatch:
     inputs:
       environment:
@@ -19,8 +28,9 @@ on:
         options:
           - sandbox
           - ria_digital_prod
+          - xe_digital_prod
       journey_ids:
-        description: 'Comma-separated Iterable journey IDs to pull. Leave blank to pull EVERYTHING (all journeys + standalone campaigns, if included below) for the selected environment. IDs are account-specific — do not reuse Sandbox IDs for a Prod run, or vice versa.'
+        description: 'Comma-separated Iterable journey IDs to pull. Leave blank to pull EVERYTHING (all journeys + standalone campaigns, if included below) for the selected environment — except Xe Digital Prod, where blank instead means "use the fixed Xe journey list" (see XE_JOURNEY_IDS in the workflow file). IDs are account-specific — do not reuse one environment''s IDs for another.'
         required: false
       include_standalone_campaigns:
         description: 'Also fetch template content for campaigns not tied to any journey (one-off Blast sends etc). Slower — this is the biggest chunk of a full pull. Off by default since the Hub does not need these right now.'
@@ -52,22 +62,52 @@ jobs:
       - name: Select environment config
         id: env
         run: |
+          # Fixed, hand-picked Xe journey list (Paul, Sep 2026 — chosen
+          # directly in Iterable's own journey/folder view, enabled/live
+          # journeys only). Xe's campaigns don't use a Transactional
+          # label/category the way Ria's do, so this environment is always
+          # pulled by explicit ID list, never by category filter. Update
+          # this line by hand if Paul's list changes.
+          XE_JOURNEY_IDS="300450,363179,395339,101943,462373,102004,204170,542415,102003,101965,173294,173285,173292,173289,426955,474938,312958,206237,206225,204815,101966,936126,613188,101949,101978,101947,375183,206229,318571,538831,523467,398882,398883,749959,749941"
+
           # A scheduled run has no "inputs" at all (github.event.inputs.* is
           # blank), unlike a manual workflow_dispatch run — so the effective
-          # environment can't just read the dropdown directly here. Scheduled
-          # runs always mean Ria Digital Prod (Sandbox is manual-only).
+          # environment can't just read the dropdown directly here. There
+          # are two schedules now (see the "on:" block above); the exact
+          # cron string that fired tells us which one this is.
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            ENVIRONMENT="ria_digital_prod"
+            if [ "${{ github.event.schedule }}" = "0 5 * * *" ]; then
+              ENVIRONMENT="xe_digital_prod"
+            else
+              ENVIRONMENT="ria_digital_prod"
+            fi
           else
             ENVIRONMENT="${{ github.event.inputs.environment }}"
           fi
           echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
+
           if [ "$ENVIRONMENT" = "ria_digital_prod" ]; then
             echo "output_file=data/iterable-journeys-ria-prod.json" >> "$GITHUB_OUTPUT"
             echo "source_label=iterable-ria-digital-prod" >> "$GITHUB_OUTPUT"
+          elif [ "$ENVIRONMENT" = "xe_digital_prod" ]; then
+            echo "output_file=data/iterable-journeys-xe-prod.json" >> "$GITHUB_OUTPUT"
+            echo "source_label=iterable-xe-digital-prod" >> "$GITHUB_OUTPUT"
           else
             echo "output_file=data/iterable-journeys.json" >> "$GITHUB_OUTPUT"
             echo "source_label=iterable-sandbox" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Journey IDs: Xe always uses the fixed list above, whether this is
+          # the scheduled Xe run or a manual Xe run where the field was left
+          # blank. Typing specific IDs into the manual journey_ids field
+          # still overrides it, in case only a subset is ever needed.
+          # Every other environment behaves as before: use whatever was
+          # typed into the manual field (blank means a full, category-scoped
+          # pull for Ria; blank on Sandbox means a full, unfiltered pull).
+          if [ "$ENVIRONMENT" = "xe_digital_prod" ] && { [ "${{ github.event_name }}" = "schedule" ] || [ -z "${{ github.event.inputs.journey_ids }}" ]; }; then
+            echo "journey_ids=$XE_JOURNEY_IDS" >> "$GITHUB_OUTPUT"
+          else
+            echo "journey_ids=${{ github.event.inputs.journey_ids }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Fetch and shape Iterable data
@@ -75,13 +115,15 @@ jobs:
           # Uses steps.env.outputs.environment (already resolved above for
           # both trigger types), not github.event.inputs.environment
           # directly, which would be blank on a scheduled run.
-          ITERABLE_API_KEY: ${{ steps.env.outputs.environment == 'ria_digital_prod' && secrets.ITERABLE_RIA_PROD_API_KEY || secrets.ITERABLE_SANDBOX_API_KEY }}
-          JOURNEY_IDS: ${{ github.event.inputs.journey_ids }}
+          ITERABLE_API_KEY: ${{ steps.env.outputs.environment == 'ria_digital_prod' && secrets.ITERABLE_RIA_PROD_API_KEY || (steps.env.outputs.environment == 'xe_digital_prod' && secrets.ITERABLE_XE_PROD_API_KEY || secrets.ITERABLE_SANDBOX_API_KEY) }}
+          JOURNEY_IDS: ${{ steps.env.outputs.journey_ids }}
           INCLUDE_STANDALONE: ${{ github.event.inputs.include_standalone_campaigns }}
           # A scheduled run has no inputs to fall back on (blank isn't "no
           # filter" here, it just means "not a manual run") so these two are
           # pinned explicitly to the standard defaults on schedule, same as
-          # what the manual dropdown defaults to anyway.
+          # what the manual dropdown defaults to anyway. Not relevant for Xe
+          # (Xe always pulls by explicit JOURNEY_IDS, which bypasses both),
+          # but harmless to set regardless.
           CATEGORY_FILTER: ${{ github.event_name == 'schedule' && 'Transactional,Transaction status' || github.event.inputs.category_filter }}
           ENABLED_ONLY: ${{ github.event_name == 'schedule' && 'true' || github.event.inputs.enabled_only }}
           OUTPUT_FILE: ${{ steps.env.outputs.output_file }}
