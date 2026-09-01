@@ -4,26 +4,38 @@
 // SAFETY MODEL — read this before changing scope:
 //   - Only ever calls journey/campaign/template endpoints. Never calls anything
 //     under /users, /lists, /campaigns/metrics, /events, or similar.
-//   - Only pulls journeys whose ID is explicitly listed in JOURNEY_IDS below
-//     (or passed via the JOURNEY_IDS env var). This is intentional — it is an
-//     allowlist, not "pull everything." Widening scope is a deliberate decision,
-//     not a side effect of adding more journey IDs.
+//   - JOURNEY_IDS is optional. Leave it blank to pull every journey (and every
+//     standalone, non-journey campaign) for the selected environment — this
+//     is a deliberate choice made per run (visible in the run log below), not
+//     an accident. Set it to a comma-separated list to restrict a run to
+//     specific journeys only, e.g. for a one-off check.
+//   - Journey IDs are account-specific: an ID that means one thing in Sandbox
+//     can point at a completely different (or unrelated) journey in Ria
+//     Digital Prod or Xe Digital Prod. Never reuse one environment's ID list
+//     for another environment's run.
 //   - Every object written to the output file is built field-by-field from an
 //     explicit allowlist (see pickSafe* functions below). Nothing is ever
 //     spread/passed through wholesale from the Iterable API response — new
 //     fields Iterable adds later do NOT automatically appear in the output.
 //   - This file is committed to the repo and published on GitHub Pages, i.e.
 //     public. Treat every field added to an allowlist as something you are
-//     comfortable with anyone on the internet reading.
+//     comfortable with anyone on the internet reading. This applies to every
+//     environment (Sandbox, Ria Digital Prod, Xe Digital Prod) equally — Prod
+//     data gets no less scrutiny than Sandbox data.
 //
-// This script is UNTESTED against the real Iterable API — the account running
-// it has no test credentials. Run it once by hand (workflow_dispatch) and
-// inspect data/iterable-journeys.json closely before trusting it to run
-// unattended on a schedule.
+// Run it once by hand (workflow_dispatch) for any new environment and inspect
+// the output file closely before trusting it to run unattended on a schedule.
 
+// Confirmed Sep 2026: Ria Digital Prod's Iterable account is on the same data
+// center as Sandbox (app.iterable.com / api.iterable.com — the default "US"
+// data center). If Xe Digital Prod turns out to be on a different data
+// center (e.g. an app.eu.iterable.com URL), this will need to become a
+// per-environment value instead of one constant.
 const API_BASE = 'https://api.iterable.com/api';
 const API_KEY = process.env.ITERABLE_API_KEY;
-const JOURNEY_IDS = (process.env.JOURNEY_IDS || '226142,277059,277060,277719,277720,283031,283032,283501,283503,285081,348886,348888,348889,361552,380903,395123,397134,420239,432250,432249,432248,432247,432241,432245,454374,491753,492899,492898,492896,498496,574376,573754,573751,573762,574394,573711,574392,574378,573710,574380,658960,658958,576402,592260,639865,687714,687711,687710,687709,769755,890935,81281,286934,287009,287065,287070,287075,287084,287085,287097,361050,976148,976178')
+const OUTPUT_FILE = process.env.OUTPUT_FILE;
+const SOURCE_LABEL = process.env.SOURCE_LABEL;
+const JOURNEY_IDS = (process.env.JOURNEY_IDS || '')
   .split(',')
   .map(s => parseInt(s.trim(), 10))
   .filter(n => !Number.isNaN(n));
@@ -32,6 +44,15 @@ if (!API_KEY) {
   console.error('Missing ITERABLE_API_KEY environment variable.');
   process.exit(1);
 }
+if (!OUTPUT_FILE) {
+  console.error('Missing OUTPUT_FILE environment variable (e.g. data/iterable-journeys.json).');
+  process.exit(1);
+}
+if (!SOURCE_LABEL) {
+  console.error('Missing SOURCE_LABEL environment variable (e.g. iterable-sandbox).');
+  process.exit(1);
+}
+const FULL_PULL = JOURNEY_IDS.length === 0;
 
 async function iterableGet(path) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -125,56 +146,81 @@ async function fetchAllJourneys() {
 }
 
 async function fetchAllCampaigns() {
-  // 1000 is the documented max page size; the Sandbox has ~700 campaigns
-  // total as of this writing, so one page covers it. If that grows past
-  // 1000, this needs real pagination added.
+  // 1000 is the documented max page size; Sandbox has ~700 campaigns total
+  // as of this writing, so one page covers it there. This has not been
+  // checked against Ria Digital Prod or Xe Digital Prod's real campaign
+  // counts — if either account has more than 1000 campaigns, this needs
+  // real pagination added before it can be trusted for that environment.
   const data = await iterableGet('/campaigns?pageSize=1000');
   return data.campaigns || [];
 }
 
+// A full-account pull can have many campaigns sharing the same template, so
+// cache template lookups by medium+id to cut down repeat API calls (matters
+// more now than it did for a small, hand-picked journey list).
+const templateCache = new Map();
+
 async function fetchTemplateContent(medium, templateId) {
   if (!templateId) return null;
+  const cacheKey = `${medium}:${templateId}`;
+  if (templateCache.has(cacheKey)) return templateCache.get(cacheKey);
+
   const pathByMedium = {
     Email: `/templates/email/get?templateId=${templateId}`,
     Push: `/templates/push/get?templateId=${templateId}`,
     InApp: `/templates/inapp/get?templateId=${templateId}`,
   };
   const path = pathByMedium[medium];
-  if (!path) return null; // SMS and unknown mediums: no content lookup for now.
-  try {
-    const tpl = await iterableGet(path);
-    return pickSafeTemplateContent(medium, tpl);
-  } catch (err) {
-    console.warn(`Could not fetch template ${templateId} (${medium}): ${err.message}`);
+  if (!path) {
+    templateCache.set(cacheKey, null); // SMS and unknown mediums: no content lookup for now.
     return null;
   }
+  let result;
+  try {
+    const tpl = await iterableGet(path);
+    result = pickSafeTemplateContent(medium, tpl);
+  } catch (err) {
+    console.warn(`Could not fetch template ${templateId} (${medium}): ${err.message}`);
+    result = null;
+  }
+  templateCache.set(cacheKey, result);
+  return result;
+}
+
+async function withContent(campaigns) {
+  const out = [];
+  for (const c of campaigns) {
+    const safeCampaign = pickSafeCampaign(c);
+    const content = await fetchTemplateContent(safeCampaign.channel, safeCampaign.templateId);
+    out.push({ ...safeCampaign, content });
+  }
+  return out;
 }
 
 async function main() {
-  console.log(`Pulling journeys: ${JOURNEY_IDS.join(', ')}`);
+  console.log(FULL_PULL
+    ? 'FULL PULL: no JOURNEY_IDS given — pulling every journey and every standalone campaign for this environment.'
+    : `RESTRICTED PULL: pulling ${JOURNEY_IDS.length} specific journey(s): ${JOURNEY_IDS.join(', ')}`);
 
   const [allJourneys, allCampaigns] = await Promise.all([
     fetchAllJourneys(),
     fetchAllCampaigns(),
   ]);
+  console.log(`Fetched ${allJourneys.length} journey(s) and ${allCampaigns.length} campaign(s) from the account.`);
+
+  const journeysToProcess = FULL_PULL
+    ? allJourneys
+    : JOURNEY_IDS.map(id => {
+        const journey = allJourneys.find(j => j.id === id);
+        if (!journey) console.warn(`Journey ${id} not found — skipping.`);
+        return journey;
+      }).filter(Boolean);
 
   const results = [];
 
-  for (const journeyId of JOURNEY_IDS) {
-    const journey = allJourneys.find(j => j.id === journeyId);
-    if (!journey) {
-      console.warn(`Journey ${journeyId} not found — skipping.`);
-      continue;
-    }
-
-    const matchingCampaigns = allCampaigns.filter(c => c.workflowId === journeyId);
-    const campaignsWithContent = [];
-
-    for (const c of matchingCampaigns) {
-      const safeCampaign = pickSafeCampaign(c);
-      const content = await fetchTemplateContent(safeCampaign.channel, safeCampaign.templateId);
-      campaignsWithContent.push({ ...safeCampaign, content });
-    }
+  for (const journey of journeysToProcess) {
+    const matchingCampaigns = allCampaigns.filter(c => c.workflowId === journey.id);
+    const campaignsWithContent = await withContent(matchingCampaigns);
 
     // Derive a journey-level category from whatever label appears most often
     // across its campaigns (e.g. "Transactional", "Growth", "Post-transactional").
@@ -191,16 +237,28 @@ async function main() {
     });
   }
 
+  // Campaigns not tied to any journey (e.g. one-off Blast sends) are only
+  // ever collected on a full pull — a restricted, ID-based run stays scoped
+  // to exactly the journeys asked for, nothing extra.
+  let standaloneCampaigns = [];
+  if (FULL_PULL) {
+    const processedJourneyIds = new Set(journeysToProcess.map(j => j.id));
+    const standaloneRaw = allCampaigns.filter(c => !c.workflowId || !processedJourneyIds.has(c.workflowId));
+    standaloneCampaigns = await withContent(standaloneRaw);
+  }
+
   const output = {
-    source: 'iterable-sandbox',
+    source: SOURCE_LABEL,
     pulledAt: new Date().toISOString(),
     journeys: results,
+    standaloneCampaigns,
   };
 
   const fs = await import('fs');
-  fs.mkdirSync('data', { recursive: true });
-  fs.writeFileSync('data/iterable-journeys.json', JSON.stringify(output, null, 2));
-  console.log(`Wrote data/iterable-journeys.json with ${results.length} journey(s).`);
+  const path = await import('path');
+  fs.mkdirSync(path.dirname(OUTPUT_FILE), { recursive: true });
+  fs.writeFileSync(OUTPUT_FILE, JSON.stringify(output, null, 2));
+  console.log(`Wrote ${OUTPUT_FILE} with ${results.length} journey(s) and ${standaloneCampaigns.length} standalone campaign(s).`);
 }
 
 main().catch(err => {
