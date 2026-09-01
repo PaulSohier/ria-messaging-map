@@ -33,11 +33,11 @@
 // Run it once by hand (workflow_dispatch) for any new environment and inspect
 // the output file closely before trusting it to run unattended on a schedule.
 
-// Confirmed Sep 2026: Ria Digital Prod's Iterable account is on the same data
-// center as Sandbox (app.iterable.com / api.iterable.com — the default "US"
-// data center). If Xe Digital Prod turns out to be on a different data
-// center (e.g. an app.eu.iterable.com URL), this will need to become a
-// per-environment value instead of one constant.
+// Confirmed Sep 2026: Ria Digital Prod AND Xe Digital Prod are both on the
+// same data center as Sandbox (app.iterable.com / api.iterable.com — the
+// default "US" data center). One constant works for all three environments;
+// only revisit this if a future environment turns out to be on a different
+// data center (e.g. an app.eu.iterable.com URL).
 const API_BASE = 'https://api.iterable.com/api';
 const API_KEY = process.env.ITERABLE_API_KEY;
 const OUTPUT_FILE = process.env.OUTPUT_FILE;
