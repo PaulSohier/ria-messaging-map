@@ -498,10 +498,11 @@ const INTENTS = [{"key":"documents_required","label":"Documents Required","icon"
 
 /* ── STATE ── */
 let activeIntent = 'all';
-let activeAudience = 'bm'; // structural now: 'bm' or 'digital' (only meaningful when activeBrand==='ria')
+let activeAudience = 'bm'; // structural: 'bm' or 'digital'. Under Ria brand these are B&M/Digital; under Xe brand they're relabeled Consumer/Corporate (see updateAudienceLabels)
 let activeBrand = 'ria'; // 'ria' or 'xe'
-let iterEnv = 'prod'; // 'prod' or 'sandbox' — which Iterable environment the Customer Journeys page (Ria + Digital) reads from
+let iterEnv = 'prod'; // 'prod' or 'sandbox' — which Ria Digital Prod environment the Customer Journeys page reads from. Not used for Xe (Xe Consumer only has a Prod pull so far, see XE_ITER_DATA_FILE)
 const ITER_DATA_FILES = { prod: 'data/iterable-journeys-ria-prod.json', sandbox: 'data/iterable-journeys.json' };
+const XE_ITER_DATA_FILE = 'data/iterable-journeys-xe-prod.json'; // Xe Consumer journeys, from the hand-picked journey list Paul chose in Iterable (Sep 2026) — Prod only, no Sandbox pull built for Xe
 let activeTab = 'p0';
 let searchQuery = '';
 let p1CountryFilter = 'all';
@@ -698,6 +699,17 @@ const NAV_CONFIG = {
   ],
 };
 
+// Xe brand's nav (Sep 2026): only Consumer has anything built so far — the
+// hand-picked journey list Paul chose in Iterable, read via the same
+// renderIterableJourneys() pipeline as Ria Digital, pointed at
+// XE_ITER_DATA_FILE instead. Xe Corporate has no data yet, so it isn't
+// listed here — renderSidebarNav() shows a placeholder note for it instead.
+const XE_NAV_CONSUMER = [
+  {section:'Explore', items:[
+    {id:'p2', icon:'', label:'Customer journeys'},
+  ]},
+];
+
 // Tools — cross-cutting utilities that aren't tied to Brand or B&M/Digital,
 // so they live in their own sidebar mode (see setHubMode) rather than nested
 // under a specific audience. Same page ids as before; only the nav grouping moved.
@@ -736,10 +748,19 @@ function renderNavSections(sections){
 
 function renderSidebarNav(){
   const nav = document.getElementById('sb-nav');
-  // Tools are Ria-specific for now, so Xe shows the same "not built yet" note
-  // in Tools mode as it does in Explore — check brand before mode.
+  // Tools are Ria-specific for now, so Xe shows a "not built yet" note in
+  // Tools mode regardless of audience — check brand + mode before audience.
   if(activeBrand === 'xe'){
-    nav.innerHTML = '<div style="padding:16px 12px;font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;">Xe isn\'t built yet — this option exists so the structure is ready when that work starts.</div>';
+    if(hubMode === 'tools'){
+      nav.innerHTML = '<div style="padding:16px 12px;font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;">Tools aren\'t built for Xe yet.</div>';
+      return;
+    }
+    if(activeAudience === 'bm'){
+      // Consumer: the only Xe slice with real data so far (Sep 2026).
+      renderNavSections(XE_NAV_CONSUMER);
+      return;
+    }
+    nav.innerHTML = '<div style="padding:16px 12px;font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;">Xe Corporate isn\'t built yet — this option exists so the structure is ready when that work starts.</div>';
     return;
   }
   if(hubMode === 'tools'){
@@ -757,15 +778,20 @@ window.setHubMode = function(mode){
   const hubToggle = document.getElementById('hub-mode-toggle');
   if(hubToggle) hubToggle.classList.toggle('tools-active', mode === 'tools');
 
-  // Audience (B&M/Digital) doesn't apply to Tools — hide it there. The Ria/Xe
-  // switch DOES still apply in Tools mode: Tools are Ria-specific for now, so
-  // switching to Xe there shows the same "not built yet" placeholder as Explore.
+  // Audience (B&M/Digital, or Consumer/Corporate under Xe) doesn't apply to
+  // Tools — hide it there. Tools are Ria-specific for now, so Xe in Tools
+  // mode shows a "not built yet" placeholder regardless of audience.
   const audToggle = document.getElementById('audience-switcher');
   if(audToggle) audToggle.style.display = mode === 'tools' ? 'none' : 'flex';
 
   renderSidebarNav();
   if(activeBrand === 'xe'){
-    renderXePlaceholder();
+    if(mode === 'explore' && activeAudience === 'bm'){
+      activateNavTabFor(activeTab);
+      renderPage(activeTab);
+    } else {
+      renderXePlaceholder();
+    }
   } else {
     if(mode === 'tools' && TOOLS_PAGE_IDS.indexOf(activeTab) === -1) activeTab = TOOLS_PAGE_IDS[0];
     activateNavTabFor(activeTab);
@@ -775,12 +801,24 @@ window.setHubMode = function(mode){
 };
 
 function setStructuralAudience(aud){
-  if(activeBrand !== 'ria') return;
   activeAudience = aud;
   document.querySelectorAll('.aud-toggle-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.aud===aud); });
   const audToggle = document.getElementById('audience-switcher');
   if(audToggle) audToggle.classList.toggle('digital-active', aud === 'digital');
   renderSidebarNav();
+
+  if(activeBrand === 'xe'){
+    // Xe: Consumer (bm) has real journey data; Corporate (digital) doesn't yet.
+    if(aud === 'bm'){
+      activateNavTabFor(activeTab);
+      renderPage(activeTab);
+    } else {
+      renderXePlaceholder();
+    }
+    updateURLState();
+    return;
+  }
+
   // Country lists differ by audience (real countries for B&M vs Digital's two regions),
   // so reset the Flow Map default rather than carry over a filter that won't match anything.
   window._flowState = {event:'all', country: aud==='digital' ? 'Digital — Global' : 'United States'};
@@ -795,8 +833,6 @@ function setBrand(brand){
   document.querySelectorAll('#brand-toggle .brand-toggle-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.brand===brand); });
   const toggle = document.getElementById('brand-toggle');
   if(toggle) toggle.classList.toggle('xe-active', brand === 'xe');
-  const audSwitcher = document.getElementById('audience-switcher');
-  if(audSwitcher) audSwitcher.classList.toggle('disabled', brand === 'xe');
   updateAudienceLabels(brand);
 
   if(brand === 'ria'){
@@ -805,8 +841,19 @@ function setBrand(brand){
     activateNavTabFor(activeTab);
     renderPage(activeTab);
   } else {
+    // Xe: default to Consumer, the only slice with real data (Sep 2026) —
+    // unless Corporate was already selected (e.g. arriving via a deep link).
+    if(activeAudience !== 'bm' && activeAudience !== 'digital') activeAudience = 'bm';
+    document.querySelectorAll('.aud-toggle-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.aud===activeAudience); });
+    const audToggle = document.getElementById('audience-switcher');
+    if(audToggle) audToggle.classList.toggle('digital-active', activeAudience === 'digital');
     renderSidebarNav();
-    renderXePlaceholder();
+    if(activeAudience === 'bm' && hubMode !== 'tools'){
+      activateNavTabFor(activeTab);
+      renderPage(activeTab);
+    } else {
+      renderXePlaceholder();
+    }
   }
   updateURLState();
 }
@@ -835,11 +882,21 @@ function renderXePlaceholder(){
     document.querySelector('.main-content').appendChild(holder);
   }
   holder.classList.add('active');
-  holder.innerHTML = '<div class="page-title">Xe <span class="page-note">Not built yet</span></div>'
+  // Only Xe Consumer (Explore mode) has real data so far (Sep 2026) — this
+  // placeholder covers the other two not-yet-built corners: Xe Corporate,
+  // and Xe in Tools mode (Tools are Ria-specific for now).
+  const isTools = hubMode === 'tools';
+  const title = isTools ? 'Xe Tools' : 'Xe Corporate';
+  const body = isTools
+    ? 'Tools aren’t built for Xe yet.'
+    : 'Xe Corporate isn’t built yet — only Xe Consumer has real journey data so far.';
+  const backLabel = isTools ? 'Back to Explore' : 'Go to Xe Consumer';
+  const backAction = isTools ? "setHubMode('explore')" : "setStructuralAudience('bm')";
+  holder.innerHTML = '<div class="page-title">'+esc(title)+' <span class="page-note">Not built yet</span></div>'
     + '<div style="max-width:480px;padding:60px 0;text-align:center;margin:0 auto;">'
-    + '<div style="font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text);">Xe isn\'t built yet</div>'
-    + '<div style="font-size:13px;color:var(--muted);line-height:1.6;">This option exists in the switcher so the structure is ready for when Xe messaging work starts. Nothing here is designed or populated yet.</div>'
-    + '<button class="btn-primary" style="margin-top:20px;" onclick="setBrand(\'ria\')">Back to Ria</button>'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text);">'+esc(title)+' isn’t built yet</div>'
+    + '<div style="font-size:13px;color:var(--muted);line-height:1.6;">'+esc(body)+' This option exists in the switcher so the structure is ready for when that work starts.</div>'
+    + '<button class="btn-primary" style="margin-top:20px;" onclick="'+backAction+'">'+esc(backLabel)+'</button>'
     + '</div>';
 }
 
@@ -1361,12 +1418,19 @@ async function renderIterableJourneys(){
   const pageNote = document.getElementById('p2-page-note');
   container.innerHTML = '<div style="padding:60px;text-align:center;color:var(--muted);font-size:13px;">Loading journeys…</div>';
 
+  // The Sandbox/Prod environment toggle is a Ria Digital thing — Xe Consumer
+  // only has a single Prod pull so far (no Xe Sandbox), so there's nothing
+  // to toggle there.
   if(envRow){
-    envRow.style.display = 'flex';
-    envRow.querySelectorAll('.aud-pill').forEach(function(b){ b.classList.toggle('active', b.dataset.env===iterEnv); });
+    if(activeBrand === 'xe'){
+      envRow.style.display = 'none';
+    } else {
+      envRow.style.display = 'flex';
+      envRow.querySelectorAll('.aud-pill').forEach(function(b){ b.classList.toggle('active', b.dataset.env===iterEnv); });
+    }
   }
 
-  const dataFile = ITER_DATA_FILES[iterEnv] || ITER_DATA_FILES.prod;
+  const dataFile = activeBrand === 'xe' ? XE_ITER_DATA_FILE : (ITER_DATA_FILES[iterEnv] || ITER_DATA_FILES.prod);
   let data;
   try {
     const res = await fetch(dataFile);
@@ -1383,7 +1447,9 @@ async function renderIterableJourneys(){
 
   if(badge){
     badge.style.display = 'inline-block';
-    badge.textContent = iterEnv === 'sandbox' ? 'via Iterable · Sandbox' : 'via Iterable · Prod';
+    // Xe only has a Prod pull (no Sandbox), so ignore iterEnv there — it's
+    // leftover Ria state that shouldn't drive Xe's badge.
+    badge.textContent = (activeBrand !== 'xe' && iterEnv === 'sandbox') ? 'via Iterable · Sandbox' : 'via Iterable · Prod';
   }
   if(searchRow) searchRow.style.display = 'flex';
   if(pageNote){
@@ -1747,7 +1813,7 @@ function mountExpandedInline(campaign, journeyId){
 
 
 function renderJourneys(){
-  if(activeBrand === 'ria' && activeAudience === 'digital'){
+  if((activeBrand === 'ria' && activeAudience === 'digital') || (activeBrand === 'xe' && activeAudience === 'bm')){
     renderIterableJourneys();
     return;
   }
@@ -3560,13 +3626,12 @@ if(initialBrandToggle) initialBrandToggle.classList.toggle('xe-active', activeBr
 document.querySelectorAll('.aud-toggle-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.aud===activeAudience); });
 const initialAudSwitcher = document.getElementById('audience-switcher');
 if(initialAudSwitcher){
-  initialAudSwitcher.classList.toggle('disabled', activeBrand === 'xe');
   initialAudSwitcher.classList.toggle('digital-active', activeAudience === 'digital');
 }
 updateAudienceLabels(activeBrand);
 renderSidebarNav();
 buildIntentBar();
-if(activeBrand === 'xe'){
+if(activeBrand === 'xe' && !(hubMode === 'explore' && activeAudience === 'bm')){
   renderXePlaceholder();
 } else {
   activateNavTabFor(activeTab);
