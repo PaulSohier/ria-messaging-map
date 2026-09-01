@@ -2,13 +2,20 @@
 // and writes a clean, PII-free JSON snapshot for the Messaging Hub to read.
 //
 // SAFETY MODEL — read this before changing scope:
-//   - Only ever calls journey/campaign/template endpoints. Never calls anything
-//     under /users, /lists, /campaigns/metrics, /events, or similar.
-//   - JOURNEY_IDS is optional. Leave it blank to pull every journey (and every
-//     standalone, non-journey campaign) for the selected environment — this
-//     is a deliberate choice made per run (visible in the run log below), not
-//     an accident. Set it to a comma-separated list to restrict a run to
-//     specific journeys only, e.g. for a one-off check.
+//   - Only ever calls journey/campaign/template endpoints, plus (added Sep
+//     2026, deliberately, per Paul) /campaigns/metrics for aggregate
+//     per-campaign counts (sends, opens, clicks, unsubscribes). That's
+//     account-level aggregate performance data, not PII — no individual
+//     recipient is ever named or identifiable in it. Still never calls
+//     anything under /users, /lists, /events, or similar.
+//   - JOURNEY_IDS is optional. Leave it blank for a full pull, which (as of
+//     Sep 2026, per Paul) is filtered down to enabled journeys under the
+//     "Transactional" / "Transaction status" categories only — see
+//     CATEGORY_FILTER / ENABLED_ONLY below — not literally every journey in
+//     the account any more. Set JOURNEY_IDS to a comma-separated list to
+//     restrict a run to specific journeys instead; an explicit list like
+//     that always bypasses CATEGORY_FILTER/ENABLED_ONLY and is pulled
+//     exactly as asked, disabled or not, any category.
 //   - Journey IDs are account-specific: an ID that means one thing in Sandbox
 //     can point at a completely different (or unrelated) journey in Ria
 //     Digital Prod or Xe Digital Prod. Never reuse one environment's ID list
@@ -44,6 +51,27 @@ const JOURNEY_IDS = (process.env.JOURNEY_IDS || '')
 // per Paul (Sep 2026), the Hub doesn't need them right now, only journeys and
 // what's attached to them. Turn on with INCLUDE_STANDALONE=true when needed.
 const INCLUDE_STANDALONE = (process.env.INCLUDE_STANDALONE || 'false').toLowerCase() === 'true';
+
+// Which journey categories to keep on a full pull (case-insensitive match
+// against the same derived `category` — most common label among a journey's
+// campaigns — the Hub already groups by). Per Paul (Sep 2026): only
+// Transactional and Transaction status are needed right now, not the whole
+// account. Comma-separated, blank = no category filtering (keep every
+// category). Only applies when FULL_PULL; an explicit JOURNEY_IDS list is
+// always honored as-is.
+// Note: uses "!== undefined", not "||" — the workflow always sets this env
+// var to SOMETHING (its own YAML default, or '' if Paul deliberately clears
+// the field to mean "no filter, keep every category"). "||" would silently
+// override an intentional blank back to the default, which defeats the point
+// of being able to clear it.
+const CATEGORY_FILTER = (process.env.CATEGORY_FILTER !== undefined ? process.env.CATEGORY_FILTER : 'Transactional,Transaction status')
+  .split(',')
+  .map(s => s.trim().toLowerCase())
+  .filter(Boolean);
+// Enabled journeys only, per Paul (Sep 2026) — skip disabled ones. Only
+// applies when FULL_PULL; an explicit JOURNEY_IDS list is always honored
+// as-is, enabled or not.
+const ENABLED_ONLY = (process.env.ENABLED_ONLY || 'true').toLowerCase() === 'true';
 
 if (!API_KEY) {
   console.error('Missing ITERABLE_API_KEY environment variable.');
@@ -82,7 +110,10 @@ const REQUEST_DELAY_MS = 150;
 const MAX_RETRIES = 6;
 const REQUEST_TIMEOUT_MS = 30000;
 
-async function iterableGet(path) {
+// Shared retry/timeout wrapper, returns the raw Response so callers decide
+// how to parse the body (most endpoints are JSON; /campaigns/metrics' raw
+// response shape isn't confirmed the same way, see iterableGetMetricsRow).
+async function iterableFetch(path) {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -118,11 +149,62 @@ async function iterableGet(path) {
       throw new Error(`Iterable API error ${res.status} on ${path}: ${await res.text()}`);
     }
 
-    const json = await res.json();
     await sleep(REQUEST_DELAY_MS);
-    return json;
+    return res;
   }
   throw new Error(`Iterable API error on ${path}: still failing after ${MAX_RETRIES} retries.`);
+}
+
+async function iterableGet(path) {
+  const res = await iterableFetch(path);
+  return res.json();
+}
+
+// campaigns/metrics: Iterable documents this as a CSV export, but exact raw
+// shape isn't independently confirmed from this script (only via the
+// Iterable MCP tool locally, which may already be parsing it). Handle both:
+// try JSON first, fall back to a one-row CSV parse. If real runs show this
+// coming back empty/wrong, that mismatch is the first thing to check.
+async function iterableGetMetricsRow(path) {
+  const res = await iterableFetch(path);
+  const text = await res.text();
+  try {
+    const json = JSON.parse(text);
+    return (Array.isArray(json) ? json[0] : json) || null;
+  } catch (e) {
+    return parseCsvRow(text);
+  }
+}
+
+function parseCsvRow(csvText) {
+  const lines = String(csvText || '').trim().split(/\r?\n/);
+  if (lines.length < 2) return null;
+  const splitCsvLine = (line) => {
+    const out = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i += 1) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"' && line[i + 1] === '"') { cur += '"'; i += 1; }
+        else if (ch === '"') { inQuotes = false; }
+        else cur += ch;
+      } else if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        out.push(cur); cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    out.push(cur);
+    return out;
+  };
+  const headers = splitCsvLine(lines[0]);
+  const values = splitCsvLine(lines[1]);
+  const row = {};
+  headers.forEach((h, i) => { row[h] = values[i]; });
+  return row;
 }
 
 // --- Explicit allowlists. Add fields here deliberately, not by convenience. ---
@@ -232,6 +314,93 @@ async function fetchAllCampaigns() {
   return all;
 }
 
+// Real per-campaign metrics, added Sep 2026 per Paul (replaces the Hub's
+// mock/placeholder numbers). Field names come straight from Iterable's
+// metrics response for this account, sampled directly per channel — Email
+// and Push confirmed against real campaigns; InApp/SMS field names below are
+// a best guess following the same naming pattern and are NOT yet confirmed
+// against a real InApp/SMS campaign in this account, first thing to check if
+// those come back all-null.
+const METRICS_FIELD_MAP = {
+  Email: {
+    sent: 'Total Email Sends',
+    delivered: 'Unique Emails Delivered',
+    opens: 'Unique Email Opens (filtered)',
+    clicks: 'Unique Email Clicks (filtered)',
+    unsubscribes: 'Unique Unsubscribes',
+    bounced: 'Unique Emails Bounced',
+  },
+  Push: {
+    sent: 'Total Pushes Sent',
+    delivered: 'Unique Pushes Delivered',
+    opens: 'Unique Pushes Opened',
+    clicks: null, // pushes have no click concept
+    unsubscribes: 'Unique Unsubscribes',
+    bounced: 'Unique Pushes Bounced',
+  },
+  InApp: {
+    sent: 'Total InApp Sends',
+    delivered: 'Unique InApp Sends',
+    opens: 'Unique InApp Opens',
+    clicks: 'Unique InApp Clicks',
+    unsubscribes: 'Unique Unsubscribes',
+    bounced: null,
+  },
+  SMS: {
+    sent: 'Total SMS Sends',
+    delivered: 'Unique SMS Sends',
+    opens: null, // SMS has no open concept
+    clicks: 'Unique SMS Clicks',
+    unsubscribes: 'Unique Unsubscribes',
+    bounced: null,
+  },
+};
+
+function toNumberOrNull(v) {
+  if (v === undefined || v === null || v === '') return null;
+  const n = Number(v);
+  return Number.isNaN(n) ? null : n;
+}
+
+function normalizeMetrics(channel, rawRow) {
+  if (!rawRow) return null;
+  const map = METRICS_FIELD_MAP[channel];
+  if (!map) return null;
+  const pick = key => (map[key] ? toNumberOrNull(rawRow[map[key]]) : null);
+  return {
+    sent: pick('sent'),
+    delivered: pick('delivered'),
+    opens: pick('opens'),
+    clicks: pick('clicks'),
+    unsubscribes: pick('unsubscribes'),
+    bounced: pick('bounced'),
+  };
+}
+
+function formatIterableDateTime(ms) {
+  const d = new Date(ms);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+}
+
+// "All time" per Paul (Sep 2026): from the campaign's own creation date up
+// to right now. Iterable's metrics endpoint always needs an explicit range,
+// there's no built-in "all time" shortcut, so this builds one per campaign.
+async function fetchCampaignMetrics(rawCampaign) {
+  if (!rawCampaign.createdAt) return null;
+  const startDateTime = formatIterableDateTime(rawCampaign.createdAt);
+  const endDateTime = formatIterableDateTime(Date.now());
+  const path = `/campaigns/metrics?campaignId=${rawCampaign.id}&startDateTime=${encodeURIComponent(startDateTime)}&endDateTime=${encodeURIComponent(endDateTime)}`;
+  let row;
+  try {
+    row = await iterableGetMetricsRow(path);
+  } catch (err) {
+    console.warn(`Could not fetch metrics for campaign ${rawCampaign.id}: ${err.message}`);
+    return null;
+  }
+  return normalizeMetrics(rawCampaign.messageMedium, row);
+}
+
 // A full-account pull can have many campaigns sharing the same template, so
 // cache template lookups by medium+id to cut down repeat API calls (matters
 // more now than it did for a small, hand-picked journey list).
@@ -273,19 +442,32 @@ async function withContent(campaigns, label, logEvery) {
   for (const c of campaigns) {
     const safeCampaign = pickSafeCampaign(c);
     const content = await fetchTemplateContent(safeCampaign.channel, safeCampaign.templateId);
-    out.push({ ...safeCampaign, content });
+    const metrics = await fetchCampaignMetrics(c); // needs raw c.createdAt, not on safeCampaign
+    out.push({ ...safeCampaign, content, metrics });
     i += 1;
     if (label && logEvery && (i % logEvery === 0 || i === campaigns.length)) {
-      console.log(`${label}: fetched template content for ${i}/${campaigns.length} campaign(s).`);
+      console.log(`${label}: fetched template content + metrics for ${i}/${campaigns.length} campaign(s).`);
     }
   }
   return out;
 }
 
+// Most-common-label category, computed from raw campaigns (labels are
+// already present on the /campaigns list response, no content fetch
+// needed) so this can run BEFORE the expensive per-campaign calls and
+// decide whether a journey is even worth fetching content/metrics for.
+function deriveCategory(campaignsForJourney) {
+  const labelCounts = {};
+  campaignsForJourney.forEach(c => {
+    (c.labels || []).forEach(l => { labelCounts[l] = (labelCounts[l] || 0) + 1; });
+  });
+  return Object.keys(labelCounts).sort((a, b) => labelCounts[b] - labelCounts[a])[0] || 'Uncategorized';
+}
+
 async function main() {
   console.log(FULL_PULL
-    ? 'FULL PULL: no JOURNEY_IDS given — pulling every journey and every standalone campaign for this environment.'
-    : `RESTRICTED PULL: pulling ${JOURNEY_IDS.length} specific journey(s): ${JOURNEY_IDS.join(', ')}`);
+    ? `FULL PULL: no JOURNEY_IDS given — pulling every ${ENABLED_ONLY ? 'enabled ' : ''}journey${CATEGORY_FILTER.length ? ` under: ${CATEGORY_FILTER.join(', ')}` : ' (every category)'} for this environment.`
+    : `RESTRICTED PULL: pulling ${JOURNEY_IDS.length} specific journey(s), exactly as listed (category/enabled filters do not apply): ${JOURNEY_IDS.join(', ')}`);
 
   // Sequential on purpose, not Promise.all: fetching journeys and campaigns
   // at the same time doubles the request rate against the same rate limit
@@ -294,7 +476,7 @@ async function main() {
   const allCampaigns = await fetchAllCampaigns();
   console.log(`Fetched ${allJourneys.length} journey(s) and ${allCampaigns.length} campaign(s) from the account.`);
 
-  const journeysToProcess = FULL_PULL
+  const candidateJourneys = FULL_PULL
     ? allJourneys
     : JOURNEY_IDS.map(id => {
         const journey = allJourneys.find(j => j.id === id);
@@ -303,39 +485,51 @@ async function main() {
       }).filter(Boolean);
 
   const results = [];
+  let skippedDisabled = 0;
+  let skippedCategory = 0;
 
-  for (const journey of journeysToProcess) {
+  for (let idx = 0; idx < candidateJourneys.length; idx += 1) {
+    const journey = candidateJourneys[idx];
     const matchingCampaigns = allCampaigns.filter(c => c.workflowId === journey.id);
-    const campaignsWithContent = await withContent(matchingCampaigns);
-    if (results.length % 50 === 0 || results.length + 1 === journeysToProcess.length) {
-      console.log(`Journeys: processed ${results.length + 1}/${journeysToProcess.length} (fetching each journey's campaign template content as we go)...`);
+    const category = deriveCategory(matchingCampaigns);
+
+    if (FULL_PULL && ENABLED_ONLY && !journey.enabled) {
+      skippedDisabled += 1;
+      continue;
+    }
+    if (FULL_PULL && CATEGORY_FILTER.length && !CATEGORY_FILTER.includes(category.toLowerCase())) {
+      skippedCategory += 1;
+      continue;
     }
 
-    // Derive a journey-level category from whatever label appears most often
-    // across its campaigns (e.g. "Transactional", "Growth", "Post-transactional").
-    const labelCounts = {};
-    campaignsWithContent.forEach(c => {
-      (c.labels || []).forEach(l => { labelCounts[l] = (labelCounts[l] || 0) + 1; });
-    });
-    const category = Object.keys(labelCounts).sort((a, b) => labelCounts[b] - labelCounts[a])[0] || 'Uncategorized';
-
+    const campaignsWithContent = await withContent(matchingCampaigns);
     results.push({
       ...pickSafeJourney(journey),
       category,
       campaigns: campaignsWithContent,
     });
+
+    if ((idx + 1) % 50 === 0 || idx + 1 === candidateJourneys.length) {
+      console.log(`Journeys: checked ${idx + 1}/${candidateJourneys.length} (${results.length} kept, ${skippedDisabled} skipped disabled, ${skippedCategory} skipped wrong category so far)...`);
+    }
+  }
+  if (FULL_PULL) {
+    console.log(`Category/enabled filtering: kept ${results.length}, skipped ${skippedDisabled} disabled, skipped ${skippedCategory} outside ${CATEGORY_FILTER.join(', ') || '(no filter)'}.`);
   }
 
-  // Campaigns not tied to any journey (e.g. one-off Blast sends) are only
-  // ever collected on a full pull — a restricted, ID-based run stays scoped
-  // to exactly the journeys asked for, nothing extra. Also gated on
+  // Campaigns not tied to ANY journey at all (e.g. one-off Blast sends) —
+  // checked against every candidate journey, not just the ones kept after
+  // category/enabled filtering, so a campaign belonging to a filtered-out
+  // journey (e.g. a "Lifecycle" journey) is never mislabeled as standalone.
+  // Only ever collected on a full pull — a restricted, ID-based run stays
+  // scoped to exactly the journeys asked for, nothing extra. Also gated on
   // INCLUDE_STANDALONE: this is the single biggest chunk of a full pull's
   // runtime (potentially thousands of individual template calls) and isn't
   // needed by the Hub right now, so it's skipped by default.
   let standaloneCampaigns = [];
   if (FULL_PULL) {
-    const processedJourneyIds = new Set(journeysToProcess.map(j => j.id));
-    const standaloneRaw = allCampaigns.filter(c => !c.workflowId || !processedJourneyIds.has(c.workflowId));
+    const allJourneyIds = new Set(candidateJourneys.map(j => j.id));
+    const standaloneRaw = allCampaigns.filter(c => !c.workflowId || !allJourneyIds.has(c.workflowId));
     if (INCLUDE_STANDALONE) {
       console.log(`Fetching template content for ${standaloneRaw.length} standalone (non-journey) campaign(s)...`);
       standaloneCampaigns = await withContent(standaloneRaw, 'Standalone campaigns', 100);
