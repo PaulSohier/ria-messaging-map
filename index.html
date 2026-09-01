@@ -425,6 +425,11 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 </div>
 <div id="p1-content"></div></div>
 <div class="page" id="p2"><div class="page-title"><span style="display:flex;align-items:center;gap:8px;">Customer journeys<span id="p2-iter-badge" style="display:none;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 10px;border-radius:20px;background:var(--purple-bg);color:var(--purple);">via Iterable</span></span><span class="page-note" id="p2-page-note">What messages a customer receives — happy and unhappy paths</span></div>
+<div id="p2-env-row" style="display:none;align-items:center;gap:8px;margin-bottom:14px;">
+  <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Environment:</span>
+  <span class="aud-pill" id="iter-env-opt-prod" data-env="prod" onclick="setIterEnv('prod')">Ria Digital Prod</span>
+  <span class="aud-pill" id="iter-env-opt-sandbox" data-env="sandbox" onclick="setIterEnv('sandbox')">Sandbox</span>
+</div>
 <div id="p2-search-row" style="display:none;align-items:center;margin-bottom:16px;">
   <div class="search-wrap">
     <span class="search-icon">&#128269;</span>
@@ -495,6 +500,8 @@ const INTENTS = [{"key":"documents_required","label":"Documents Required","icon"
 let activeIntent = 'all';
 let activeAudience = 'bm'; // structural now: 'bm' or 'digital' (only meaningful when activeBrand==='ria')
 let activeBrand = 'ria'; // 'ria' or 'xe'
+let iterEnv = 'prod'; // 'prod' or 'sandbox' — which Iterable environment the Customer Journeys page (Ria + Digital) reads from
+const ITER_DATA_FILES = { prod: 'data/iterable-journeys-ria-prod.json', sandbox: 'data/iterable-journeys.json' };
 let activeTab = 'p0';
 let searchQuery = '';
 let p1CountryFilter = 'all';
@@ -596,6 +603,7 @@ function updateURLState(){
   if(activeTab !== 'p0') params.set('tab', activeTab);
   if(activeIntent !== 'all') params.set('intent', activeIntent);
   if(activeAudience !== 'bm') params.set('aud', activeAudience);
+  if(iterEnv !== 'prod') params.set('env', iterEnv);
   if(activeTab === 'p0' && window._flowState){
     if(window._flowState.event !== 'all') params.set('event', window._flowState.event);
     if(window._flowState.country !== 'all') params.set('country', window._flowState.country);
@@ -611,6 +619,7 @@ function applyURLState(){
   if(params.has('tab')) activeTab = params.get('tab');
   if(params.has('intent')) activeIntent = params.get('intent');
   if(params.has('aud')) activeAudience = params.get('aud');
+  if(params.has('env') && ITER_DATA_FILES[params.get('env')]) iterEnv = params.get('env');
   if(params.has('event') || params.has('country')){
     window._flowState = window._flowState || {event:'all', country:'United States'};
     if(params.has('event')) window._flowState.event = params.get('event');
@@ -1336,16 +1345,31 @@ function iterMatches(text, query){
   return (text||'').toLowerCase().indexOf(query.toLowerCase()) !== -1;
 }
 
+function setIterEnv(env){
+  if(!ITER_DATA_FILES[env] || iterEnv === env) return;
+  iterEnv = env;
+  _iterCatState = {}; _iterJourneyState = {}; _iterExpanded = {}; // don't carry open/closed state across environments, they don't share journey IDs
+  updateURLState();
+  renderIterableJourneys();
+}
+
 async function renderIterableJourneys(){
   const container = document.getElementById('p2-content');
   const badge = document.getElementById('p2-iter-badge');
+  const envRow = document.getElementById('p2-env-row');
   const searchRow = document.getElementById('p2-search-row');
   const pageNote = document.getElementById('p2-page-note');
   container.innerHTML = '<div style="padding:60px;text-align:center;color:var(--muted);font-size:13px;">Loading journeys…</div>';
 
+  if(envRow){
+    envRow.style.display = 'flex';
+    envRow.querySelectorAll('.aud-pill').forEach(function(b){ b.classList.toggle('active', b.dataset.env===iterEnv); });
+  }
+
+  const dataFile = ITER_DATA_FILES[iterEnv] || ITER_DATA_FILES.prod;
   let data;
   try {
-    const res = await fetch('data/iterable-journeys.json');
+    const res = await fetch(dataFile);
     if(!res.ok) throw new Error('fetch failed: '+res.status);
     data = await res.json();
   } catch(e) {
@@ -1353,11 +1377,14 @@ async function renderIterableJourneys(){
     if(searchRow) searchRow.style.display = 'none';
     if(pageNote) pageNote.textContent = 'What messages a customer receives — happy and unhappy paths';
     container.innerHTML = '<div class="empty-intent"><div class="empty-intent-title">Could not load Iterable journey data</div>'
-      + '<div class="empty-intent-sub">Check that data/iterable-journeys.json exists on this branch.</div></div>';
+      + '<div class="empty-intent-sub">Check that '+esc(dataFile)+' exists on this branch.</div></div>';
     return;
   }
 
-  if(badge) badge.style.display = 'inline-block';
+  if(badge){
+    badge.style.display = 'inline-block';
+    badge.textContent = iterEnv === 'sandbox' ? 'via Iterable · Sandbox' : 'via Iterable · Prod';
+  }
   if(searchRow) searchRow.style.display = 'flex';
   if(pageNote){
     if(data.pulledAt){
@@ -1716,6 +1743,8 @@ function renderJourneys(){
   }
   const p2Badge = document.getElementById('p2-iter-badge');
   if(p2Badge) p2Badge.style.display = 'none';
+  const p2EnvRow = document.getElementById('p2-env-row');
+  if(p2EnvRow) p2EnvRow.style.display = 'none';
   const p2SearchRow = document.getElementById('p2-search-row');
   if(p2SearchRow) p2SearchRow.style.display = 'none';
   const p2PageNote = document.getElementById('p2-page-note');
@@ -2862,80 +2891,304 @@ function sheetRowToTemplate(row, audience) {
 
 /* ── FULL OPT-IN COST IMPACT (Nick's model) ── */
 function renderOptInImpact(){
+  const OI_SAVE_KEY = 'riaMessagingHub_optInImpact';
+  function loadOptInSaved(){
+    try{
+      const raw = localStorage.getItem(OI_SAVE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch(e){ return null; }
+  }
+  const oiSaved = loadOptInSaved();
+
   const SMS_COSTS = {"Albania":0.071433,"Angola":0.101467,"Antigua & Barbuda":0.113567,"Argentina":0.065980,"Armenia":0.120325,"Australia":0.014640,"Austria":0.018700,"Bahamas":0.048000,"Bahrain":0.019700,"Barbados":0.173750,"Belgium":0.058060,"Belize":0.162000,"Benin":0.204067,"Bolivia":0.111533,"Bosnia Herzegovina":0.158933,"Botswana":0.026267,"Brazil":0.010329,"British Virgin Islands":0.115967,"Brunei":0.037533,"Bulgaria":0.095167,"Burkina Faso":0.098633,"Cambodia":0.146933,"Cameroon":0.115750,"Canada":0.020145,"Cape Verde":0.099350,"Cayman Islands":0.171650,"Chad":0.145950,"Chile":0.009814,"Comoros":0.070700,"Congo Brazaville":0.152350,"Congo DRC":0.137525,"Cook Islands":0.066700,"Croatia":0.071033,"Cyprus":0.009500,"Czech Republic":0.037460,"Denmark":0.037618,"Dominican Republic":0.050433,"Ecuador":0.199467,"El Salvador":0.075060,"Estonia":0.027860,"Fiji":0.107433,"Finland":0.050600,"France":0.042447,"Gabon":0.144125,"Gambia":0.065900,"Georgia":0.096220,"Germany":0.064657,"Ghana":0.158140,"Gibraltar":0.042000,"Greece":0.034800,"Guam":0.033600,"Guatemala":0.091050,"Guinea":0.137820,"Guinea Bissau":0.209200,"Guyana":0.135350,"Honduras":0.102700,"Hong Kong":0.040522,"Hungary":0.036650,"Iceland":0.052100,"India":0.041960,"Indonesia":0.230033,"Ireland":0.046940,"Israel":0.154582,"Italy":0.032021,"Ivory Coast":0.224400,"Jamaica":0.137100,"Japan":0.032540,"Jordan":0.166967,"Kazakhstan":0.205167,"Kenya":0.130580,"Korea South":0.007800,"Kosovo":0.175600,"Kuwait":0.189325,"Kyrgyzstan":0.146750,"Laos":0.103120,"Latvia":0.029860,"Lebanon":0.274700,"Liberia":0.136933,"Lithuania":0.034000,"Luxembourg":0.055333,"Macau":0.015175,"Madagascar":0.292867,"Malawi":0.152300,"Malaysia":0.124267,"Maldives":0.234700,"Malta":0.042000,"Mauritius":0.094900,"Moldova":0.077480,"Mongolia":0.187680,"Montenegro":0.110400,"Morocco":0.121500,"Mozambique":0.215033,"Netherlands":0.070083,"New Zealand":0.049300,"Nicaragua":0.090500,"Niger":0.123325,"North Macedonia":0.075775,"Norway":0.041400,"Oman":0.079200,"Panama":0.102450,"Papua New Guinea":0.146975,"Paraguay":0.046075,"Peru":0.119100,"Philippines":0.147833,"Poland":0.015622,"Portugal":0.011433,"Qatar":0.164650,"Romania":0.031900,"Rwanda":0.196850,"Saudi Arabia":0.127800,"Senegal":0.155333,"Serbia":0.196033,"Seychelles":0.206650,"Sierra Leone":0.172250,"Singapore":0.032320,"Slovakia":0.033250,"Slovenia":0.107700,"Solomon Islands":0.068150,"South Africa":0.009080,"South Sudan":0.102680,"Spain":0.024912,"Sri Lanka":0.256925,"Suriname":0.178300,"Sweden":0.040539,"Switzerland":0.031488,"Tanzania":0.191350,"Thailand":0.004633,"Togo":0.265850,"Trinidad & Tobago":0.165200,"Turkey":0.002800,"Turks & Caicos":0.190000,"Uganda":0.111580,"Ukraine":0.119167,"United Arab Emirates":0.080700,"United Kingdom":0.035959,"United States":0.005500,"Vanuatu":0.112450,"Zambia":0.183400,"Zimbabwe":0.078700};
   const COUNTRY_ORDERS = {"Albania":87389,"Angola":48,"Antigua & Barbuda":11888,"Argentina":59436,"Armenia":38810,"Australia":2210390,"Austria":581002,"Bahamas":11,"Bahrain":281,"Barbados":5,"Belgium":2779711,"Belize":1,"Benin":47656,"Bolivia":4935,"Bosnia Herzegovina":2882,"Botswana":550,"Brazil":883,"British Virgin Islands":1,"Brunei":4963,"Bulgaria":259749,"Burkina Faso":21803,"Cambodia":683,"Cameroon":295770,"Canada":4843159,"Cape Verde":151,"Cayman Islands":1,"Chad":55383,"Chile":2893904,"Comoros":121930,"Congo Brazaville":131858,"Congo DRC":56287,"Cook Islands":1,"Croatia":4,"Cyprus":88201,"Czech Republic":159771,"Denmark":493048,"Dominican Republic":99,"Ecuador":13210,"El Salvador":3617,"Estonia":10525,"Fiji":404,"Finland":86847,"France":15495103,"Gabon":40045,"Gambia":1656,"Georgia":154382,"Germany":6274832,"Ghana":12,"Gibraltar":2,"Greece":440435,"Guam":4,"Guatemala":14859,"Guinea":13587,"Guinea Bissau":38366,"Guyana":229,"Honduras":128,"Hong Kong":6682,"Hungary":3744,"Iceland":17,"India":15,"Indonesia":573,"Ireland":252109,"Israel":370058,"Italy":10219696,"Ivory Coast":226333,"Jamaica":3,"Japan":250219,"Jordan":48782,"Kazakhstan":16937,"Kenya":1061,"Korea South":40664,"Kosovo":74821,"Kuwait":7421,"Kyrgyzstan":2016,"Laos":53,"Latvia":27773,"Lebanon":150,"Liberia":232,"Lithuania":8059,"Luxembourg":176191,"Macau":4,"Madagascar":8080,"Malawi":45,"Malaysia":4051990,"Maldives":30848,"Malta":98,"Mauritius":25262,"Moldova":40296,"Mongolia":788,"Montenegro":15283,"Morocco":30419,"Mozambique":38,"Netherlands":1099610,"New Zealand":508403,"Nicaragua":3,"Niger":4771,"North Macedonia":34638,"Norway":490052,"Oman":2655,"Panama":61,"Papua New Guinea":1,"Paraguay":479,"Peru":139,"Philippines":5761,"Poland":70433,"Portugal":1138144,"Qatar":67855,"Romania":28769,"Rwanda":32,"Saudi Arabia":9303,"Senegal":175581,"Serbia":66873,"Seychelles":6237,"Sierra Leone":24,"Singapore":95358,"Slovakia":156,"Slovenia":19,"Solomon Islands":7824,"South Africa":607391,"South Sudan":46,"Spain":17938861,"Sri Lanka":4,"Suriname":839,"Sweden":540774,"Switzerland":1547206,"Tanzania":3968,"Thailand":1130,"Togo":36264,"Trinidad & Tobago":1,"Turkey":107900,"Turks & Caicos":16114,"Uganda":484,"Ukraine":1,"United Arab Emirates":61984,"United Kingdom":5012286,"United States":69927961,"Vanuatu":29,"Zambia":470,"Zimbabwe":641};
-  const US_EVENTS = [{"name": "Transaction Ready for Pickup", "pct": 35.6486}, {"name": "Transaction Paid", "pct": 34.9982}, {"name": "Transaction Pick Up Reminder (3 Days)", "pct": 0.6675}, {"name": "Transaction Canceled", "pct": 0.242}, {"name": "Strategic Retail Partners - Refund Completed", "pct": 0.2409}, {"name": "Strategic Retail Partners - Available for Refund", "pct": 0.2406}, {"name": "Transaction Needs Information", "pct": 0.1788}, {"name": "Transaction Pick Up Reminder (7 Days)", "pct": 0.1394}, {"name": "Transaction Resent", "pct": 0.0627}, {"name": "Customer Opt-In", "pct": 0.0571}, {"name": "Transaction Pick Up Reminder (14 Days)", "pct": 0.0484}, {"name": "Agent activated due to paid credit", "pct": 0.0344}, {"name": "Transaction Rejected", "pct": 0.0302}, {"name": "Requires interview", "pct": 0.0238}, {"name": "Refund Reminder (3 Day)", "pct": 0.0435}, {"name": "Refund Reminder (7 Day)", "pct": 0.0273}, {"name": "Refund Reminder (14 Day)", "pct": 0.021}, {"name": "Agent suspended due to past-due balance", "pct": 0.0164}, {"name": "Transaction Ready for Refund", "pct": 0.0137}, {"name": "Agent suspended 7 days reminder", "pct": 0.0042}, {"name": "Agent suspended 15 days reminder", "pct": 0.0039}, {"name": "Transaction Cancelled (Time Limit Expired)", "pct": 0.0028}, {"name": "Refund Reminder (1 Day)", "pct": 0.0007}, {"name": "Refund Reminder (2 Day)", "pct": 0.0006}, {"name": "Refund Reminder (20 Day)", "pct": 0.0003}, {"name": "Transaction Pick Up Reminder (1 Day)", "pct": 0.0001}, {"name": "Transaction Pick Up Reminder (2 Days)", "pct": 0.0001}, {"name": "Transaction Sent To Be Paid", "pct": 0.0}, {"name": "Transaction Cancelled (Test Transaction)", "pct": 0.0}];
-  const OPTIN_RATE_2025 = 64; // real, confirmed current SMS opt-in rate
-  const SEGMENTS = 2; // billing units per SMS, same default used elsewhere in the Hub
 
-  const avg2025 = US_EVENTS.reduce(function(s,e){ return s+e.pct; }, 0) / 100;
-  const avg100  = avg2025 / (OPTIN_RATE_2025/100);
+  // Full set of real 2025 US events, same source as the SMS Cost Calculator.
+  // All editable via the "Adjust assumptions" panel below the main view.
+  const DEFAULT_ROWS = [
+    {name:'Transaction Ready for Pickup', msgs:1, pct:35.6486},
+    {name:'Transaction Paid', msgs:1, pct:34.9982},
+    {name:'Transaction Pick Up Reminder (3 Days)', msgs:1, pct:0.6675},
+    {name:'Transaction Canceled', msgs:1, pct:0.242},
+    {name:'Strategic Retail Partners - Refund Completed', msgs:1, pct:0.2409},
+    {name:'Strategic Retail Partners - Available for Refund', msgs:1, pct:0.2406},
+    {name:'Transaction Needs Information', msgs:1, pct:0.1788},
+    {name:'Transaction Pick Up Reminder (7 Days)', msgs:1, pct:0.1394},
+    {name:'Transaction Resent', msgs:1, pct:0.0627},
+    {name:'Customer Opt-In', msgs:1, pct:0.0571},
+    {name:'Transaction Pick Up Reminder (14 Days)', msgs:1, pct:0.0484},
+    {name:'Agent activated due to paid credit', msgs:1, pct:0.0344},
+    {name:'Transaction Rejected', msgs:1, pct:0.0302},
+    {name:'Requires interview', msgs:1, pct:0.0238},
+    {name:'Refund Reminder (3 Day)', msgs:1, pct:0.0435},
+    {name:'Refund Reminder (7 Day)', msgs:1, pct:0.0273},
+    {name:'Refund Reminder (14 Day)', msgs:1, pct:0.021},
+    {name:'Agent suspended due to past-due balance', msgs:1, pct:0.0164},
+    {name:'Transaction Ready for Refund', msgs:1, pct:0.0137},
+    {name:'Agent suspended 7 days reminder', msgs:1, pct:0.0042},
+    {name:'Agent suspended 15 days reminder', msgs:1, pct:0.0039},
+    {name:'Transaction Cancelled (Time Limit Expired)', msgs:1, pct:0.0028},
+    {name:'Refund Reminder (1 Day)', msgs:1, pct:0.0007},
+    {name:'Refund Reminder (2 Day)', msgs:1, pct:0.0006},
+    {name:'Refund Reminder (20 Day)', msgs:1, pct:0.0003},
+    {name:'Transaction Pick Up Reminder (1 Day)', msgs:1, pct:0.0001},
+    {name:'Transaction Pick Up Reminder (2 Days)', msgs:1, pct:0.0001},
+    {name:'Transaction Sent To Be Paid', msgs:1, pct:0.0},
+    {name:'Transaction Cancelled (Test Transaction)', msgs:1, pct:0.0},
+  ];
+  // Use whatever the person last saved, if anything — otherwise the real
+  // 2025 defaults above.
+  const ROWS_TO_USE = (oiSaved && Array.isArray(oiSaved.rows) && oiSaved.rows.length) ? oiSaved.rows : DEFAULT_ROWS;
 
-  function globalCost(avgMsgsPerOrder){
-    let total = 0;
-    Object.keys(COUNTRY_ORDERS).forEach(function(c){
-      const orders = COUNTRY_ORDERS[c] || 0;
-      const rate = SMS_COSTS[c] || 0;
-      total += orders * avgMsgsPerOrder * rate * SEGMENTS;
-    });
-    return total;
-  }
+  const calcCountries = Object.keys(SMS_COSTS).sort();
+  const countryOptions = calcCountries.map(function(co){
+    return '<option value="'+co+'"'+(co==='United States'?' selected':'')+'>'+co+'</option>';
+  }).join('');
 
-  const cost2025 = globalCost(avg2025);
-  const cost100  = globalCost(avg100);
-  const gap = cost100 - cost2025;
-
-  function fmtMoney(n){ return '$'+n.toLocaleString('en-US',{maximumFractionDigits:0}); }
-  function fmtMsgs(n){ return n.toFixed(3); }
-
-  function statBox(label, value, sub, accent){
-    return '<div style="flex:1;min-width:190px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;'+(accent?'border-color:'+accent+';':'')+'">'
-      + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">'+label+'</div>'
-      + '<div style="font-size:24px;font-weight:700;color:'+(accent||'var(--text)')+';">'+value+'</div>'
-      + (sub?'<div style="font-size:11px;color:var(--muted);margin-top:4px;">'+sub+'</div>':'')
-      + '</div>';
-  }
-
-  let detailRows = '';
-  US_EVENTS.forEach(function(e){
-    const adj = e.pct / (OPTIN_RATE_2025/100);
-    detailRows += '<tr>'
-      + '<td style="padding:6px 10px;font-size:12px;">'+esc(e.name)+'</td>'
-      + '<td style="padding:6px 10px;font-size:12px;text-align:right;">'+e.pct.toFixed(4)+'%</td>'
-      + '<td style="padding:6px 10px;font-size:12px;text-align:right;color:var(--purple);font-weight:600;">'+adj.toFixed(4)+'%</td>'
+  let rows = '';
+  ROWS_TO_USE.forEach(function(r, i){
+    rows += '<tr id="oi_row_'+i+'">'
+      + '<td style="padding:6px 10px;"><input type="text" id="oi_name_'+i+'" value="'+esc(r.name)+'" oninput="recalcOptInImpact()" style="width:100%;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;"></td>'
+      + '<td style="padding:6px 10px;"><input type="number" id="oi_msgs_'+i+'" value="'+r.msgs+'" min="0" step="1" oninput="recalcOptInImpact()" style="width:60px;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;text-align:center;"></td>'
+      + '<td style="padding:6px 10px;"><input type="number" id="oi_pct_'+i+'" value="'+r.pct+'" min="0" max="100" step="0.01" oninput="recalcOptInImpact()" style="width:80px;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;text-align:center;">%</td>'
+      + '<td style="padding:6px 10px;font-size:12px;text-align:right;color:var(--muted);" id="oi_contrib_'+i+'">—</td>'
+      + '<td style="padding:6px 4px;text-align:center;"><button onclick="removeOptInRow('+i+')" title="Remove this row" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:14px;line-height:1;padding:2px 6px;">&times;</button></td>'
       + '</tr>';
   });
+  rows += '<tr><td colspan="5" style="padding:8px 10px;"><button onclick="addOptInRow()" style="font-size:11px;font-weight:600;color:var(--purple);background:var(--purple-bg);border:1px solid var(--purple);border-radius:6px;padding:5px 12px;cursor:pointer;">+ Add event</button></td></tr>';
 
   const html = '<div class="calc-wrap">'
-    + '<div style="background:#F0FBF4;border:1px solid #97C459;border-radius:var(--radius);padding:12px 18px;margin-bottom:20px;font-size:12px;color:#27500A;line-height:1.7;">'
-    + '<strong>How to read this</strong><br>'
-    + 'Average messages per order today ('+fmtMsgs(avg2025)+') is built from real 2025 US event rates (Power BI, Jan\u2013Dec), each event weighted by how often it actually fires. '
-    + 'At 100% opt-in ('+fmtMsgs(avg100)+'), that same rate is scaled up from today\'s real opt-in rate ('+OPTIN_RATE_2025+'%) to full participation. '
-    + 'Both figures are then applied to every market\'s own real order volume and real Clickatell rate — same proxy method used throughout this Hub, since the US is the only market with real behavioral data on file.'
+
+    // ── Presentation view (what Nick sees) ──────────────────────────
+    + '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px;">'
+    + '<div style="flex:1;min-width:190px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">Avg. messages / order @ 100% opt-in</div>'
+    + '<div id="oi-avg-msgs" style="font-size:28px;font-weight:700;color:var(--text);">—</div>'
+    + '<div id="oi-avg-msgs-today" style="font-size:11px;color:var(--muted);margin-top:4px;">—</div>'
+    + '</div>'
+    + '<div style="flex:1;min-width:190px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">2025 actual SMS cost</div>'
+    + '<div id="oi-actual-display" style="font-size:28px;font-weight:700;color:var(--text);">—</div>'
+    + '</div>'
+    + '<div style="flex:1;min-width:190px;background:var(--card);border:1px solid var(--purple);border-radius:var(--radius);padding:16px 18px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">Expected cost @ 100% opt-in</div>'
+    + '<div id="oi-expected-cost" style="font-size:28px;font-weight:700;color:var(--purple);">—</div>'
+    + '</div>'
+    + '<div style="flex:1;min-width:190px;background:var(--card);border:1px solid var(--orange);border-radius:var(--radius);padding:16px 18px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">The gap</div>'
+    + '<div id="oi-gap" style="font-size:28px;font-weight:700;color:var(--orange);">—</div>'
+    + '</div>'
     + '</div>'
 
-    + '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:24px;">'
-    + statBox('Avg. messages / order — 2025', fmtMsgs(avg2025), 'At today\'s '+OPTIN_RATE_2025+'% opt-in')
-    + statBox('Avg. messages / order — 100% opt-in', fmtMsgs(avg100), 'Same event mix, full participation', 'var(--purple)')
-    + statBox('2025 actual cost', fmtMoney(cost2025), 'Global, Clickatell rates')
-    + statBox('Expected cost @ 100% opt-in', fmtMoney(cost100), 'Global, Clickatell rates', 'var(--purple)')
-    + statBox('The gap', fmtMoney(gap), 'Additional annual cost if fully opted in', 'var(--orange)')
+    + '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;">'
+    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px;">2025 actual vs. expected @ 100% opt-in</div>'
+    + '<div id="oi-chart-bars" style="display:flex;flex-direction:column;gap:14px;"></div>'
     + '</div>'
 
-    + '<details style="margin-top:8px;">'
-    + '<summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--purple);padding:8px 0;">See the per-event breakdown</summary>'
-    + '<table style="width:100%;border-collapse:collapse;margin-top:10px;">'
+    + '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;">'
+    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px;">What drives the average — top contributing events</div>'
+    + '<div id="oi-event-bars" style="display:flex;flex-direction:column;gap:10px;"></div>'
+    + '</div>'
+
+    // ── Adjustments (Paul only, closed by default) ──────────────────
+    + '<details style="border:1px solid var(--border);border-radius:var(--radius);">'
+    + '<summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:12px 18px;">&#9881; Adjust assumptions</summary>'
+    + '<div style="padding:0 18px 18px;">'
+
+    + '<div style="background:#F0FBF4;border:1px solid #97C459;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:#27500A;line-height:1.6;">'
+    + 'Rows below start with all 29 real 2025 US events (same data as the SMS Cost Calculator). Adjust freely — the graphs above update live.'
+    + '</div>'
+
+    + '<table style="width:100%;border-collapse:collapse;margin-bottom:8px;">'
     + '<thead><tr style="border-bottom:1px solid var(--border);">'
-    + '<th style="padding:6px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Event</th>'
-    + '<th style="padding:6px 10px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">2025 rate</th>'
-    + '<th style="padding:6px 10px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">@ 100% opt-in</th>'
-    + '</tr></thead><tbody>'
-    + detailRows
+    + '<th style="padding:6px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Message</th>'
+    + '<th style="padding:6px 10px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Msgs sent</th>'
+    + '<th style="padding:6px 10px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">% of orders</th>'
+    + '<th style="padding:6px 10px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Contribution</th>'
+    + '<th style="width:30px;"></th>'
+    + '</tr></thead><tbody id="oi-rows-body">'
+    + rows
     + '</tbody></table>'
+
+    + '<div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--border);margin-top:8px;">'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Market</label>'
+    + '<select id="oi-country" onchange="recalcOptInImpact()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;font-weight:500;color:var(--text);cursor:pointer;min-width:180px;">'
+    + countryOptions + '</select>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Total orders</label>'
+    + '<input id="oi-orders" type="number" min="0" oninput="recalcOptInImpact()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;font-weight:500;color:var(--text);width:160px;">'
+    + '<div style="font-size:9px;color:var(--hint);">Auto-fills by market · editable</div>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">SMS rate</label>'
+    + '<div id="oi-rate-display" style="padding:8px 14px;border-radius:7px;border:1px solid var(--border);background:var(--purple-bg);font-size:13px;font-weight:600;color:var(--purple);min-width:100px;">—</div>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Current opt-in rate</label>'
+    + '<input id="oi-current-optin" type="number" min="0.01" max="100" step="0.01" value="64" oninput="recalcOptInImpact()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;font-weight:500;color:var(--text);width:100px;">'
+    + '<div style="font-size:9px;color:var(--hint);">The % rows above are scaled up from this</div>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">2025 actual SMS cost</label>'
+    + '<input id="oi-actual-cost" type="number" min="0" placeholder="From billing" oninput="recalcOptInImpact()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;font-weight:500;color:var(--text);width:160px;">'
+    + '<div style="font-size:9px;color:var(--hint);">You provide this — not derived here</div>'
+    + '</div>'
+    + '</div>'
+    + '</div>'
     + '</details>'
     + '</div>';
 
   document.getElementById('p9-content').innerHTML = html;
+  window._oiRowCount = ROWS_TO_USE.length;
+  window._oiSmsCosts = SMS_COSTS;
+  window._oiCountryOrders = COUNTRY_ORDERS;
+
+  if(oiSaved && oiSaved.country && SMS_COSTS[oiSaved.country] !== undefined){
+    document.getElementById('oi-country').value = oiSaved.country;
+  }
+  document.getElementById('oi-orders').value = (oiSaved && oiSaved.orders !== undefined) ? oiSaved.orders : COUNTRY_ORDERS[document.getElementById('oi-country').value];
+  if(oiSaved && oiSaved.optinRate !== undefined){
+    document.getElementById('oi-current-optin').value = oiSaved.optinRate;
+  }
+  if(oiSaved && oiSaved.actualCost !== undefined && oiSaved.actualCost !== null){
+    document.getElementById('oi-actual-cost').value = oiSaved.actualCost;
+  }
+  recalcOptInImpact();
+}
+
+function addOptInRow(){
+  const i = window._oiRowCount++;
+  const tbody = document.getElementById('oi-rows-body');
+  const tr = document.createElement('tr');
+  tr.id = 'oi_row_'+i;
+  tr.innerHTML = '<td style="padding:6px 10px;"><input type="text" id="oi_name_'+i+'" value="New event" oninput="recalcOptInImpact()" style="width:100%;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;"></td>'
+    + '<td style="padding:6px 10px;"><input type="number" id="oi_msgs_'+i+'" value="1" min="0" step="1" oninput="recalcOptInImpact()" style="width:60px;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;text-align:center;"></td>'
+    + '<td style="padding:6px 10px;"><input type="number" id="oi_pct_'+i+'" value="0" min="0" max="100" step="0.01" oninput="recalcOptInImpact()" style="width:80px;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;text-align:center;">%</td>'
+    + '<td style="padding:6px 10px;font-size:12px;text-align:right;color:var(--muted);" id="oi_contrib_'+i+'">—</td>'
+    + '<td style="padding:6px 4px;text-align:center;"><button onclick="removeOptInRow('+i+')" title="Remove this row" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:14px;line-height:1;padding:2px 6px;">&times;</button></td>';
+  tbody.insertBefore(tr, tbody.lastElementChild);
+  recalcOptInImpact();
+}
+
+function removeOptInRow(i){
+  const row = document.getElementById('oi_row_'+i);
+  if(row) row.remove();
+  recalcOptInImpact();
+}
+
+function recalcOptInImpact(){
+  const country = document.getElementById('oi-country').value;
+  const rate = window._oiSmsCosts[country] || 0;
+  const rateDisplay = document.getElementById('oi-rate-display');
+  if(rateDisplay) rateDisplay.textContent = '$'+rate.toFixed(4);
+
+  const ordersInput = document.getElementById('oi-orders');
+  if(document.activeElement !== ordersInput && window._oiCountryOrders[country] !== undefined){
+    ordersInput.value = window._oiCountryOrders[country];
+  }
+  const orders = parseFloat(ordersInput.value) || 0;
+
+  let avgMsgsToday = 0;
+  const eventContribs = [];
+  for(let i=0; i<window._oiRowCount; i++){
+    const nameEl = document.getElementById('oi_name_'+i);
+    const msgsEl = document.getElementById('oi_msgs_'+i);
+    const pctEl = document.getElementById('oi_pct_'+i);
+    const contribEl = document.getElementById('oi_contrib_'+i);
+    if(!msgsEl || !pctEl) continue;
+    const msgs = parseFloat(msgsEl.value) || 0;
+    const pct = parseFloat(pctEl.value) || 0;
+    const contrib = msgs * (pct/100);
+    avgMsgsToday += contrib;
+    if(contribEl) contribEl.textContent = contrib.toFixed(4);
+    eventContribs.push({name: nameEl ? nameEl.value : ('Event '+i), contrib: contrib});
+  }
+
+  // The % rows above reflect TODAY's real observed rates — which are already
+  // suppressed by the current opt-in rate, since only opted-in customers can
+  // receive anything. To get the 100%-opt-in scenario, scale that figure up.
+  const currentOptinInput = document.getElementById('oi-current-optin');
+  const currentOptin = parseFloat(currentOptinInput.value) || 100;
+  const avgMsgs100 = avgMsgsToday / (currentOptin/100);
+
+  const expectedCost = avgMsgs100 * orders * rate;
+  const actualCostInput = document.getElementById('oi-actual-cost');
+  const actualCost = parseFloat(actualCostInput.value) || null;
+
+  document.getElementById('oi-avg-msgs').textContent = avgMsgs100.toFixed(3);
+  document.getElementById('oi-avg-msgs-today').textContent = 'vs. '+avgMsgsToday.toFixed(3)+' today at '+currentOptin+'% opt-in';
+  document.getElementById('oi-expected-cost').textContent = '$'+expectedCost.toLocaleString('en-US',{maximumFractionDigits:0});
+  document.getElementById('oi-actual-display').textContent = actualCost !== null ? ('$'+actualCost.toLocaleString('en-US',{maximumFractionDigits:0})) : 'Enter below';
+
+  const gapEl = document.getElementById('oi-gap');
+  let gap = null;
+  if(actualCost !== null){
+    gap = expectedCost - actualCost;
+    gapEl.textContent = (gap>=0?'+':'')+'$'+gap.toLocaleString('en-US',{maximumFractionDigits:0});
+  } else {
+    gapEl.textContent = 'Enter 2025 cost';
+  }
+
+  // Comparison bar chart: 2025 actual vs expected @ 100% opt-in
+  const chartEl = document.getElementById('oi-chart-bars');
+  if(chartEl){
+    const maxVal = Math.max(actualCost || 0, expectedCost, 1);
+    function costBar(label, value, color, known){
+      const pctW = known ? Math.max(2, (value/maxVal)*100) : 0;
+      return '<div>'
+        + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">'
+        + '<span style="font-weight:600;color:var(--text);">'+label+'</span>'
+        + '<span style="font-weight:700;color:'+color+';">'+(known ? ('$'+value.toLocaleString('en-US',{maximumFractionDigits:0})) : '—')+'</span>'
+        + '</div>'
+        + '<div style="background:var(--bg);border-radius:6px;height:22px;overflow:hidden;">'
+        + '<div style="background:'+color+';height:100%;width:'+pctW+'%;border-radius:6px;transition:width .3s;"></div>'
+        + '</div></div>';
+    }
+    chartEl.innerHTML = costBar('2025 actual', actualCost || 0, 'var(--text)', actualCost !== null)
+      + costBar('Expected @ 100% opt-in', expectedCost, 'var(--purple)', true);
+  }
+
+  // Top contributing events, ranked
+  const eventsEl = document.getElementById('oi-event-bars');
+  if(eventsEl){
+    const top = eventContribs.filter(function(e){ return e.contrib > 0; })
+      .sort(function(a,b){ return b.contrib - a.contrib; })
+      .slice(0, 8);
+    const maxContrib = top.length ? top[0].contrib : 1;
+    eventsEl.innerHTML = top.map(function(e){
+      const w = Math.max(2, (e.contrib/maxContrib)*100);
+      const shareOfAvg = avgMsgsToday > 0 ? (e.contrib/avgMsgsToday*100) : 0;
+      return '<div>'
+        + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">'
+        + '<span style="color:var(--text);">'+esc(e.name)+'</span>'
+        + '<span style="color:var(--muted);">'+shareOfAvg.toFixed(1)+'% of average</span>'
+        + '</div>'
+        + '<div style="background:var(--bg);border-radius:5px;height:14px;overflow:hidden;">'
+        + '<div style="background:var(--orange);height:100%;width:'+w+'%;border-radius:5px;transition:width .3s;"></div>'
+        + '</div></div>';
+    }).join('') || '<div style="font-size:12px;color:var(--muted);">No events with a positive rate yet.</div>';
+  }
+
+  // Persist everything the person typed, so it survives a page reload.
+  try{
+    const rowsToSave = [];
+    for(let i=0; i<window._oiRowCount; i++){
+      const nameEl = document.getElementById('oi_name_'+i);
+      const msgsEl = document.getElementById('oi_msgs_'+i);
+      const pctEl = document.getElementById('oi_pct_'+i);
+      if(!nameEl || !msgsEl || !pctEl) continue;
+      rowsToSave.push({name: nameEl.value, msgs: parseFloat(msgsEl.value)||0, pct: parseFloat(pctEl.value)||0});
+    }
+    localStorage.setItem('riaMessagingHub_optInImpact', JSON.stringify({
+      rows: rowsToSave,
+      country: country,
+      orders: orders,
+      optinRate: currentOptin,
+      actualCost: actualCost,
+    }));
+  } catch(e){ /* storage unavailable — fail silently, nothing critical depends on this */ }
 }
 
 async function loadSheetData() {
