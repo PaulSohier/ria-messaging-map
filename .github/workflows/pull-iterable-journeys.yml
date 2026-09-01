@@ -1,6 +1,14 @@
 name: Pull Iterable journey data
 
 on:
+  # Automatic: Ria Digital Prod only, once a day, same default settings as
+  # the manual run (enabled journeys, Transactional + Transaction status
+  # categories, no standalone campaigns). Sandbox stays manual-only (Paul,
+  # Sep 2026) — trigger it by hand via workflow_dispatch when testing.
+  # Cron is UTC. 4:00 UTC picked as a quiet, off-hours default; change the
+  # line below if a different time suits better, nothing else depends on it.
+  schedule:
+    - cron: '0 4 * * *'
   workflow_dispatch:
     inputs:
       environment:
@@ -44,7 +52,17 @@ jobs:
       - name: Select environment config
         id: env
         run: |
-          if [ "${{ github.event.inputs.environment }}" = "ria_digital_prod" ]; then
+          # A scheduled run has no "inputs" at all (github.event.inputs.* is
+          # blank), unlike a manual workflow_dispatch run — so the effective
+          # environment can't just read the dropdown directly here. Scheduled
+          # runs always mean Ria Digital Prod (Sandbox is manual-only).
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            ENVIRONMENT="ria_digital_prod"
+          else
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+          fi
+          echo "environment=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
+          if [ "$ENVIRONMENT" = "ria_digital_prod" ]; then
             echo "output_file=data/iterable-journeys-ria-prod.json" >> "$GITHUB_OUTPUT"
             echo "source_label=iterable-ria-digital-prod" >> "$GITHUB_OUTPUT"
           else
@@ -54,11 +72,18 @@ jobs:
 
       - name: Fetch and shape Iterable data
         env:
-          ITERABLE_API_KEY: ${{ github.event.inputs.environment == 'ria_digital_prod' && secrets.ITERABLE_RIA_PROD_API_KEY || secrets.ITERABLE_SANDBOX_API_KEY }}
+          # Uses steps.env.outputs.environment (already resolved above for
+          # both trigger types), not github.event.inputs.environment
+          # directly, which would be blank on a scheduled run.
+          ITERABLE_API_KEY: ${{ steps.env.outputs.environment == 'ria_digital_prod' && secrets.ITERABLE_RIA_PROD_API_KEY || secrets.ITERABLE_SANDBOX_API_KEY }}
           JOURNEY_IDS: ${{ github.event.inputs.journey_ids }}
           INCLUDE_STANDALONE: ${{ github.event.inputs.include_standalone_campaigns }}
-          CATEGORY_FILTER: ${{ github.event.inputs.category_filter }}
-          ENABLED_ONLY: ${{ github.event.inputs.enabled_only }}
+          # A scheduled run has no inputs to fall back on (blank isn't "no
+          # filter" here, it just means "not a manual run") so these two are
+          # pinned explicitly to the standard defaults on schedule, same as
+          # what the manual dropdown defaults to anyway.
+          CATEGORY_FILTER: ${{ github.event_name == 'schedule' && 'Transactional,Transaction status' || github.event.inputs.category_filter }}
+          ENABLED_ONLY: ${{ github.event_name == 'schedule' && 'true' || github.event.inputs.enabled_only }}
           OUTPUT_FILE: ${{ steps.env.outputs.output_file }}
           SOURCE_LABEL: ${{ steps.env.outputs.source_label }}
         run: node scripts/pull-iterable-journeys.js
@@ -71,5 +96,5 @@ jobs:
           git config user.name "iterable-sync-bot"
           git config user.email "actions@github.com"
           git add "${{ steps.env.outputs.output_file }}"
-          git diff --staged --quiet || git commit -m "Update Iterable journey data (${{ github.event.inputs.environment }}, manual run)"
+          git diff --staged --quiet || git commit -m "Update Iterable journey data (${{ steps.env.outputs.environment }}, ${{ github.event_name == 'schedule' && 'scheduled run' || 'manual run' }})"
           git push
