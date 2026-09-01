@@ -146,13 +146,29 @@ async function fetchAllJourneys() {
 }
 
 async function fetchAllCampaigns() {
-  // 1000 is the documented max page size; Sandbox has ~700 campaigns total
-  // as of this writing, so one page covers it there. This has not been
-  // checked against Ria Digital Prod or Xe Digital Prod's real campaign
-  // counts — if either account has more than 1000 campaigns, this needs
-  // real pagination added before it can be trusted for that environment.
-  const data = await iterableGet('/campaigns?pageSize=1000');
-  return data.campaigns || [];
+  // Real pagination, not a single capped call. Confirmed Sep 2026 against
+  // Ria Digital Prod: a single pageSize=1000 call silently truncated a
+  // 9,290-campaign account down to 1,000 with no error, so this loops using
+  // the API's own nextPageUrl (same pattern as fetchAllJourneys) until it's
+  // exhausted, and cross-checks against the API's own totalCampaignsCount.
+  const all = [];
+  let page = 1;
+  let advertisedTotal = null;
+  for (;;) {
+    const data = await iterableGet(`/campaigns?pageSize=1000&page=${page}`);
+    const batch = data.campaigns || [];
+    all.push(...batch);
+    if (advertisedTotal == null) {
+      advertisedTotal = data.totalCampaignsCount ?? data.total ?? data.count ?? null;
+    }
+    console.log(`Campaigns page ${page}: got ${batch.length} (running total ${all.length}${advertisedTotal != null ? ` of ${advertisedTotal}` : ''}).`);
+    if (!data.nextPageUrl) break;
+    page += 1;
+  }
+  if (advertisedTotal != null && advertisedTotal !== all.length) {
+    console.warn(`WARNING: fetched ${all.length} campaigns total, but the API reported totalCampaignsCount ${advertisedTotal} — mismatch, investigate before trusting this run.`);
+  }
+  return all;
 }
 
 // A full-account pull can have many campaigns sharing the same template, so
