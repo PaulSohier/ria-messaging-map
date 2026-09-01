@@ -54,14 +54,45 @@ if (!SOURCE_LABEL) {
 }
 const FULL_PULL = JOURNEY_IDS.length === 0;
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// A full pull makes thousands of calls (campaign pages + one template lookup
+// per unique template), which is enough to hit Iterable's rate limit even
+// on a single well-behaved script. Confirmed Sep 2026 against Ria Digital
+// Prod: plain pagination alone hit a 429 on page 6 of /campaigns. So every
+// call goes through this retry wrapper, and a small fixed delay is added
+// after each successful call too, to stay under the limit instead of just
+// reacting to it.
+const REQUEST_DELAY_MS = 150;
+const MAX_RETRIES = 6;
+
 async function iterableGet(path) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Api-Key': API_KEY },
-  });
-  if (!res.ok) {
-    throw new Error(`Iterable API error ${res.status} on ${path}: ${await res.text()}`);
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: { 'Api-Key': API_KEY },
+    });
+
+    if (res.status === 429) {
+      const retryAfterHeader = res.headers.get('Retry-After');
+      const waitMs = retryAfterHeader
+        ? Math.max(1000, parseFloat(retryAfterHeader) * 1000)
+        : Math.min(30000, 1000 * 2 ** attempt); // exponential backoff, capped at 30s
+      console.warn(`Rate limited on ${path} (attempt ${attempt}/${MAX_RETRIES}) — waiting ${Math.round(waitMs / 1000)}s before retrying.`);
+      await sleep(waitMs);
+      continue;
+    }
+
+    if (!res.ok) {
+      throw new Error(`Iterable API error ${res.status} on ${path}: ${await res.text()}`);
+    }
+
+    const json = await res.json();
+    await sleep(REQUEST_DELAY_MS);
+    return json;
   }
-  return res.json();
+  throw new Error(`Iterable API error on ${path}: still rate limited after ${MAX_RETRIES} retries.`);
 }
 
 // --- Explicit allowlists. Add fields here deliberately, not by convenience. ---
@@ -218,10 +249,11 @@ async function main() {
     ? 'FULL PULL: no JOURNEY_IDS given — pulling every journey and every standalone campaign for this environment.'
     : `RESTRICTED PULL: pulling ${JOURNEY_IDS.length} specific journey(s): ${JOURNEY_IDS.join(', ')}`);
 
-  const [allJourneys, allCampaigns] = await Promise.all([
-    fetchAllJourneys(),
-    fetchAllCampaigns(),
-  ]);
+  // Sequential on purpose, not Promise.all: fetching journeys and campaigns
+  // at the same time doubles the request rate against the same rate limit
+  // that /campaigns already hits on its own during a full pull.
+  const allJourneys = await fetchAllJourneys();
+  const allCampaigns = await fetchAllCampaigns();
   console.log(`Fetched ${allJourneys.length} journey(s) and ${allCampaigns.length} campaign(s) from the account.`);
 
   const journeysToProcess = FULL_PULL
