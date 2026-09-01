@@ -70,6 +70,26 @@ Sheet structure mirrors the library exactly:
 
 The dashboard shows a one-time welcome message to first-time visitors. Returning users get a callout whenever something worth knowing has shipped since their last visit — a fuller "what's new" recap if they're coming from before the V4 redesign, or a lighter single-feature spotlight for smaller additions (e.g. the message share-link). Nothing repeats once dismissed for that version — this is tracked per-browser via local storage, keyed to the app version.
 
+## Iterable journey data (Sandbox + Ria Digital Prod)
+
+`data/iterable-journeys.json` (Sandbox) and `data/iterable-journeys-ria-prod.json` (Ria Digital Prod) are built by `scripts/pull-iterable-journeys.js`, run manually via the **Pull Iterable journey data** GitHub Actions workflow (`workflow_dispatch`).
+
+To run it:
+
+1. Go to Actions > Pull Iterable journey data > Run workflow.
+2. Pick the **environment** (`sandbox` or `ria_digital_prod`).
+3. **Journey IDs** field: leave it blank to pull everything (every journey, plus every standalone/non-journey campaign) for that environment. Enter a comma-separated list only if you want to restrict this one run to specific journeys.
+
+Two repo secrets back this: `ITERABLE_SANDBOX_API_KEY` and `ITERABLE_RIA_PROD_API_KEY` (add the second one under Settings > Secrets and variables > Actions before running a Prod pull for the first time). Both accounts are on the same Iterable data center (`api.iterable.com`), confirmed Sep 2026.
+
+**Important:** if you do use the journey IDs field, remember IDs are specific to one Iterable account. An ID that means one journey in Sandbox can be a completely different (or nonexistent) journey in Ria Digital Prod, never reuse one environment's ID list for another's run. Always inspect the committed output file after a run before relying on it, the same way the Opt-in pull below is meant to be checked, this matters even more on a full pull since it can surface things nobody has reviewed yet (stale test campaigns, clones, drafts).
+
+The output file's `journeys` array holds journey-attached campaigns as before; a full pull also fills a `standaloneCampaigns` array with campaigns that aren't tied to any journey (a restricted, ID-based run leaves this empty).
+
+The script's own header comment carries the full safety model (read-only, allowlisted fields, no user/PII data), which applies equally to Sandbox and Prod pulls, and to a full pull just as much as a restricted one, Prod data gets no less scrutiny.
+
+Xe Digital Prod is not wired up yet, that is tracked separately (see CGD-6275), along with a Hub UI toggle to switch which environment's data is shown.
+
 ## Opt-in rates (new — Aug 2026)
 
 The **Opt-in rates** tab reads `data/optin-daily.json`, one entry per day (global figures — always complete — plus a per-country breakdown). It's designed to be filled in one of two ways:
