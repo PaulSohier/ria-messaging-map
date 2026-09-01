@@ -1557,30 +1557,40 @@ const CAMPAIGN_STATUS_COLORS = {
   Finished:  {bg:'#EFEFEC', color:'#6E7178'},
   Aborted:   {bg:'#FCEAEA', color:'#B23A3A'},
 };
-// Placeholder metrics for design/UX purposes only — no real Iterable metrics
-// endpoint is wired up yet. Numbers are seeded per campaign so they at least
-// stay stable across re-renders instead of jumping around randomly.
-function seededRandom(seed){
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
+// Real Iterable metrics (Sep 2026) — sourced from the pull script's
+// campaigns/metrics call (all-time, since each campaign's own creation
+// date). campaign.metrics is null when the pull couldn't fetch it (older
+// data pulled before this existed, or that one campaign's fetch failed).
+function formatMetricPct(n){
+  if(n === null || n === undefined || !isFinite(n)) return '—';
+  return n.toFixed(1)+'%';
 }
-function mockMetricsHtml(campaignId){
-  const sent = Math.floor(500 + seededRandom(campaignId) * 15000);
-  const openRate = Math.round(15 + seededRandom(campaignId + 1) * 45);
-  const clickRate = Math.round(2 + seededRandom(campaignId + 2) * 18);
-  const unsubRate = (seededRandom(campaignId + 3) * 1.2).toFixed(2);
+function formatMetricCount(n){
+  if(n === null || n === undefined) return '—';
+  return n.toLocaleString('en-US');
+}
+function realMetricsHtml(campaign){
+  const m = campaign.metrics;
   function stat(value, label){
     return '<div style="flex:1;text-align:center;padding:10px 6px;">'
       + '<div style="font-size:18px;font-weight:700;color:var(--text);">'+value+'</div>'
       + '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;">'+label+'</div>'
       + '</div>';
   }
+  if(!m){
+    return '<div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg);padding:14px;justify-content:center;">'
+      + '<span style="font-size:11px;color:var(--muted);">No metrics available for this campaign yet.</span>'
+      + '</div>';
+  }
+  const denom = m.delivered || m.sent || 0;
+  const openRate = denom ? (m.opens||0)/denom*100 : null;
+  const clickRate = (m.clicks===null || m.clicks===undefined) ? null : (denom ? (m.clicks||0)/denom*100 : null);
+  const unsubRate = denom ? (m.unsubscribes||0)/denom*100 : null;
   return '<div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:relative;">'
-    + '<span style="position:absolute;top:4px;right:8px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--hint);">Mock data — not connected to real metrics</span>'
-    + stat(sent.toLocaleString(), 'Sent')
-    + stat(openRate+'%', 'Open rate')
-    + stat(clickRate+'%', 'Click rate')
-    + stat(unsubRate+'%', 'Unsubscribe rate')
+    + stat(formatMetricCount(m.sent), 'Sent')
+    + stat(formatMetricPct(openRate), 'Open rate')
+    + stat(clickRate===null?'—':formatMetricPct(clickRate), 'Click rate')
+    + stat(formatMetricPct(unsubRate), 'Unsubscribe rate')
     + '</div>';
 }
 
@@ -1654,7 +1664,7 @@ function toggleIterableCampaign(campId, journeyId){
 
   panel.innerHTML = '<div class="iter-expanded-hdr"><span>'+esc(target.name)+'</span>'
     + '<button onclick="toggleIterableCampaign('+target.id+','+journeyId+')" class="iter-expand-close">Collapse</button></div>'
-    + mockMetricsHtml(target.id)
+    + realMetricsHtml(target)
     + '<div class="iter-expanded-body" id="iter-expand-body-'+journeyId+'"></div>';
   panel.classList.add('open');
   mountExpandedInline(target, journeyId);
