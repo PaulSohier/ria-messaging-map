@@ -39,6 +39,11 @@ const JOURNEY_IDS = (process.env.JOURNEY_IDS || '')
   .split(',')
   .map(s => parseInt(s.trim(), 10))
   .filter(n => !Number.isNaN(n));
+// Campaigns not tied to any journey (one-off Blast sends etc). Off by default:
+// fetching their template content is the slowest part of a full pull and,
+// per Paul (Sep 2026), the Hub doesn't need them right now, only journeys and
+// what's attached to them. Turn on with INCLUDE_STANDALONE=true when needed.
+const INCLUDE_STANDALONE = (process.env.INCLUDE_STANDALONE || 'false').toLowerCase() === 'true';
 
 if (!API_KEY) {
   console.error('Missing ITERABLE_API_KEY environment variable.');
@@ -65,14 +70,39 @@ function sleep(ms) {
 // call goes through this retry wrapper, and a small fixed delay is added
 // after each successful call too, to stay under the limit instead of just
 // reacting to it.
+//
+// It also happened once that a run went quiet mid-page with no error and no
+// new log line — most likely just the Actions log view lagging behind the
+// real run, but a request that never gets a response (network stall, no
+// timeout) would look identical: stuck forever with nothing printed. So
+// every call now has its own timeout via AbortController, and a timeout
+// counts as a retryable failure just like a 429, instead of hanging silently
+// until GitHub's own job timeout eventually kills the whole run.
 const REQUEST_DELAY_MS = 150;
 const MAX_RETRIES = 6;
+const REQUEST_TIMEOUT_MS = 30000;
 
 async function iterableGet(path) {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
-    const res = await fetch(`${API_BASE}${path}`, {
-      headers: { 'Api-Key': API_KEY },
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    let res;
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        headers: { 'Api-Key': API_KEY },
+        signal: controller.signal,
+      });
+    } catch (err) {
+      clearTimeout(timeout);
+      if (attempt === MAX_RETRIES) {
+        throw new Error(`Iterable API error on ${path}: gave up after ${MAX_RETRIES} attempts (${err.message}).`);
+      }
+      const waitMs = Math.min(30000, 1000 * 2 ** attempt);
+      console.warn(`Request to ${path} did not respond within ${REQUEST_TIMEOUT_MS / 1000}s (attempt ${attempt}/${MAX_RETRIES}: ${err.message}) — waiting ${Math.round(waitMs / 1000)}s before retrying.`);
+      await sleep(waitMs);
+      continue;
+    }
+    clearTimeout(timeout);
 
     if (res.status === 429) {
       const retryAfterHeader = res.headers.get('Retry-After');
@@ -92,7 +122,7 @@ async function iterableGet(path) {
     await sleep(REQUEST_DELAY_MS);
     return json;
   }
-  throw new Error(`Iterable API error on ${path}: still rate limited after ${MAX_RETRIES} retries.`);
+  throw new Error(`Iterable API error on ${path}: still failing after ${MAX_RETRIES} retries.`);
 }
 
 // --- Explicit allowlists. Add fields here deliberately, not by convenience. ---
@@ -234,12 +264,20 @@ async function fetchTemplateContent(medium, templateId) {
   return result;
 }
 
-async function withContent(campaigns) {
+// label/logEvery: this step used to run completely silently (thousands of
+// individual template calls, one at a time, no output at all) which once
+// looked exactly like a hung job when it wasn't. Now it prints progress.
+async function withContent(campaigns, label, logEvery) {
   const out = [];
+  let i = 0;
   for (const c of campaigns) {
     const safeCampaign = pickSafeCampaign(c);
     const content = await fetchTemplateContent(safeCampaign.channel, safeCampaign.templateId);
     out.push({ ...safeCampaign, content });
+    i += 1;
+    if (label && logEvery && (i % logEvery === 0 || i === campaigns.length)) {
+      console.log(`${label}: fetched template content for ${i}/${campaigns.length} campaign(s).`);
+    }
   }
   return out;
 }
@@ -269,6 +307,9 @@ async function main() {
   for (const journey of journeysToProcess) {
     const matchingCampaigns = allCampaigns.filter(c => c.workflowId === journey.id);
     const campaignsWithContent = await withContent(matchingCampaigns);
+    if (results.length % 50 === 0 || results.length + 1 === journeysToProcess.length) {
+      console.log(`Journeys: processed ${results.length + 1}/${journeysToProcess.length} (fetching each journey's campaign template content as we go)...`);
+    }
 
     // Derive a journey-level category from whatever label appears most often
     // across its campaigns (e.g. "Transactional", "Growth", "Post-transactional").
@@ -287,12 +328,20 @@ async function main() {
 
   // Campaigns not tied to any journey (e.g. one-off Blast sends) are only
   // ever collected on a full pull — a restricted, ID-based run stays scoped
-  // to exactly the journeys asked for, nothing extra.
+  // to exactly the journeys asked for, nothing extra. Also gated on
+  // INCLUDE_STANDALONE: this is the single biggest chunk of a full pull's
+  // runtime (potentially thousands of individual template calls) and isn't
+  // needed by the Hub right now, so it's skipped by default.
   let standaloneCampaigns = [];
   if (FULL_PULL) {
     const processedJourneyIds = new Set(journeysToProcess.map(j => j.id));
     const standaloneRaw = allCampaigns.filter(c => !c.workflowId || !processedJourneyIds.has(c.workflowId));
-    standaloneCampaigns = await withContent(standaloneRaw);
+    if (INCLUDE_STANDALONE) {
+      console.log(`Fetching template content for ${standaloneRaw.length} standalone (non-journey) campaign(s)...`);
+      standaloneCampaigns = await withContent(standaloneRaw, 'Standalone campaigns', 100);
+    } else {
+      console.log(`Skipping ${standaloneRaw.length} standalone (non-journey) campaign(s) — INCLUDE_STANDALONE is off.`);
+    }
   }
 
   const output = {
