@@ -1,12 +1,19 @@
-name: Pull Iterable journey data (test)
+name: Pull Iterable journey data
 
 on:
   workflow_dispatch:
     inputs:
-      journey_ids:
-        description: 'Comma-separated Iterable journey IDs to pull'
+      environment:
+        description: 'Which Iterable environment to pull from'
         required: true
-        default: '226142,277059,277060,277719,277720,283031,283032,283501,283503,285081,348886,348888,348889,361552,380903,395123,397134,420239,432250,432249,432248,432247,432241,432245,454374,491753,492899,492898,492896,498496,574376,573754,573751,573762,574394,573711,574392,574378,573710,574380,658960,658958,576402,592260,639865,687714,687711,687710,687709,769755,890935,81281,286934,287009,287065,287070,287075,287084,287085,287097,361050,976148,976178'
+        type: choice
+        default: 'sandbox'
+        options:
+          - sandbox
+          - ria_digital_prod
+      journey_ids:
+        description: 'Comma-separated Iterable journey IDs to pull. Leave blank to pull EVERYTHING (all journeys + standalone campaigns) for the selected environment. IDs are account-specific — do not reuse Sandbox IDs for a Prod run, or vice versa.'
+        required: false
 
 jobs:
   pull-data:
@@ -20,19 +27,32 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Select environment config
+        id: env
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "ria_digital_prod" ]; then
+            echo "output_file=data/iterable-journeys-ria-prod.json" >> "$GITHUB_OUTPUT"
+            echo "source_label=iterable-ria-digital-prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "output_file=data/iterable-journeys.json" >> "$GITHUB_OUTPUT"
+            echo "source_label=iterable-sandbox" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Fetch and shape Iterable data
         env:
-          ITERABLE_API_KEY: ${{ secrets.ITERABLE_SANDBOX_API_KEY }}
+          ITERABLE_API_KEY: ${{ github.event.inputs.environment == 'ria_digital_prod' && secrets.ITERABLE_RIA_PROD_API_KEY || secrets.ITERABLE_SANDBOX_API_KEY }}
           JOURNEY_IDS: ${{ github.event.inputs.journey_ids }}
+          OUTPUT_FILE: ${{ steps.env.outputs.output_file }}
+          SOURCE_LABEL: ${{ steps.env.outputs.source_label }}
         run: node scripts/pull-iterable-journeys.js
 
       - name: Show output for review
-        run: cat data/iterable-journeys.json
+        run: cat "${{ steps.env.outputs.output_file }}"
 
       - name: Commit updated data file
         run: |
           git config user.name "iterable-sync-bot"
           git config user.email "actions@github.com"
-          git add data/iterable-journeys.json
-          git diff --staged --quiet || git commit -m "Update Iterable journey data (manual run)"
+          git add "${{ steps.env.outputs.output_file }}"
+          git diff --staged --quiet || git commit -m "Update Iterable journey data (${{ github.event.inputs.environment }}, manual run)"
           git push
