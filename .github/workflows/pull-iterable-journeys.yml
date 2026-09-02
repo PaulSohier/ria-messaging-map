@@ -12,12 +12,17 @@ on:
   #   config" step below for the actual list.
   # Sandbox stays manual-only — trigger it by hand via workflow_dispatch
   # when testing.
-  # Cron is UTC. 4:00 and 5:00 UTC picked as quiet, off-hours defaults, one
-  # hour apart so the two runs don't overlap; change the lines below if a
-  # different time suits better, nothing else depends on it.
+  # Cron is UTC. Updated Sep 2, 2026: the original 4:00/5:00 UTC schedules
+  # never fired on their first scheduled day (confirmed via the Actions
+  # tab — zero runs, not even a failed one), even though manual
+  # workflow_dispatch runs for both environments completed successfully.
+  # Moved to 8:15/8:18 UTC as a fresh, closely-watched test of whether
+  # GitHub's schedule trigger will fire at all on this repo. 3 minutes
+  # apart (not the same minute) so the two runs' git pushes don't race —
+  # see the "git pull --rebase" safety net below for the same reason.
   schedule:
-    - cron: '0 4 * * *'
-    - cron: '0 5 * * *'
+    - cron: '15 8 * * *'
+    - cron: '18 8 * * *'
   workflow_dispatch:
     inputs:
       environment:
@@ -76,7 +81,7 @@ jobs:
           # are two schedules now (see the "on:" block above); the exact
           # cron string that fired tells us which one this is.
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            if [ "${{ github.event.schedule }}" = "0 5 * * *" ]; then
+            if [ "${{ github.event.schedule }}" = "18 8 * * *" ]; then
               ENVIRONMENT="xe_digital_prod"
             else
               ENVIRONMENT="ria_digital_prod"
@@ -139,4 +144,14 @@ jobs:
           git config user.email "actions@github.com"
           git add "${{ steps.env.outputs.output_file }}"
           git diff --staged --quiet || git commit -m "Update Iterable journey data (${{ steps.env.outputs.environment }}, ${{ github.event_name == 'schedule' && 'scheduled run' || 'manual run' }})"
-          git push
+          # Ria and Xe now run only a few minutes apart, and each writes to a
+          # different file — if the other one already pushed while this run
+          # was still fetching from Iterable, a plain "git push" would be
+          # rejected as non-fast-forward. Rebase onto main right before
+          # pushing so this run's commit (on a different file) always lands
+          # cleanly on top, retrying a few times in case of a tight race.
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push && break
+            echo "Push attempt $i failed, retrying after a short wait..."
+            sleep 5
+          done
