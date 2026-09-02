@@ -497,6 +497,30 @@ let activeIntent = 'all';
 let activeAudience = 'bm'; // structural now: 'bm' or 'digital' (only meaningful when activeBrand==='ria')
 let activeBrand = 'ria'; // 'ria' or 'xe'
 let activeTab = 'p0';
+// Countries where a Global Agent (not Ria) manages sending — per the Global
+// Agents file, excluding the US, where Ria still owns the customer
+// communication even though an agent manages the sending tooling there.
+const GLOBAL_AGENT_COUNTRIES = ['Albania','Angola','Antigua & Barbuda','Argentina','Armenia','Bahamas','Bahrain','Benin','Bolivia','Bosnia Herzegovina','Brazil','Brunei','Bulgaria','Burkina Faso','Cambodia','Cameroon','Cape Verde','Chad','Chile','Comoros','Congo DRC','Congo Brazaville','Cyprus','Czech Republic','Dominican Republic','Ecuador','El Salvador','Estonia','Fiji','Gabon','Gambia','Georgia','Guatemala','Guinea','Guinea Bissau','Guyana','Honduras','Hong Kong','Hungary','Indonesia','Israel','Ivory Coast','Japan','Jordan','Kazakhstan','Kenya','Korea South','Kosovo','Kuwait','Kyrgyzstan','Laos','Latvia','Lebanon','Liberia','Lithuania','Macau','Madagascar','Malawi','Maldives','Mauritius','Moldova','Mongolia','Montenegro','Morocco','Mozambique','Nicaragua','Niger','North Macedonia','Oman','Paraguay','Peru','Philippines','Poland','Qatar','Romania','Rwanda','Saudi Arabia','Senegal','Serbia','Seychelles','Sierra Leone','Singapore','Solomon Islands','South Africa','Sri Lanka','Suriname','Tanzania','Thailand','Togo','Trinidad & Tobago','Turkey','Turks & Caicos','Uganda','United Arab Emirates','Zambia','Zimbabwe'];
+
+function isRiaSendingCountry(country){
+  return GLOBAL_AGENT_COUNTRIES.indexOf(country) === -1;
+}
+
+function getRiaSendingOnly(){
+  try { return localStorage.getItem('riaMessagingHub_riaSendingOnly') === '1'; } catch(e){ return false; }
+}
+function setRiaSendingOnly(val){
+  try { localStorage.setItem('riaMessagingHub_riaSendingOnly', val ? '1' : '0'); } catch(e){}
+  renderPage(activeTab);
+}
+function riaSendingToggleHtml(){
+  const checked = getRiaSendingOnly();
+  return '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;user-select:none;">'
+    + '<input type="checkbox" '+(checked?'checked':'')+' onchange="setRiaSendingOnly(this.checked)" style="cursor:pointer;">'
+    + 'Ria sending countries only <span style="color:var(--hint);">(excludes Global Agent markets)</span>'
+    + '</label>';
+}
+
 let searchQuery = '';
 let p1CountryFilter = 'all';
 let p1ChannelFilter = 'all';
@@ -895,7 +919,9 @@ function renderGlobalCost(){
     'Asia Pacific': ['Australia','Brunei','Cambodia','Fiji','Hong Kong','India','Indonesia','Japan','Korea South','Kyrgyzstan','Laos','Macau','Malaysia','Mongolia','New Zealand','Papua New Guinea','Philippines','Singapore','Sri Lanka','Thailand','Vanuatu'],
   };
 
-  const allCountries = Object.keys(SMS_COSTS).sort((a,b)=>{
+  const allCountries = Object.keys(SMS_COSTS).filter(function(c){
+    return !getRiaSendingOnly() || isRiaSendingCountry(c);
+  }).sort((a,b)=>{
     const ca=(COUNTRY_ORDERS[a]||0)*US_PARTICIPATION*SMS_COSTS[a]*SEGMENTS;
     const cb=(COUNTRY_ORDERS[b]||0)*US_PARTICIPATION*SMS_COSTS[b]*SEGMENTS;
     return cb-ca;
@@ -1044,6 +1070,10 @@ function renderGlobalCost(){
     '<strong>SMS costs</strong> are current contracted telco rates per SMS (split into 2 billing units of ~160 chars each, as most Ria messages are ~200 chars).'+
     '</div>'+
 
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">'+
+    riaSendingToggleHtml()+
+    '</div>'+
+
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">'+
     '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">View by region</div>'+
     '<select id="gc-region-sel" onchange="buildGlobalTable(this.value)" style="padding:7px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;font-weight:500;color:var(--text);cursor:pointer;">'+regionOptions+'</select>'+
@@ -1114,7 +1144,9 @@ function renderGlobalCostTwilio(){
   };
 
   // Only markets with BOTH a Twilio rate and order-volume data on file
-  const allCountries = Object.keys(SMS_COSTS).filter(c=>(COUNTRY_ORDERS[c]||0)>0).sort((a,b)=>{
+  const allCountries = Object.keys(SMS_COSTS).filter(function(c){
+    return (COUNTRY_ORDERS[c]||0)>0 && (!getRiaSendingOnly() || isRiaSendingCountry(c));
+  }).sort((a,b)=>{
     const ca=(COUNTRY_ORDERS[a]||0)*US_PARTICIPATION*SMS_COSTS[a]*SEGMENTS;
     const cb=(COUNTRY_ORDERS[b]||0)*US_PARTICIPATION*SMS_COSTS[b]*SEGMENTS;
     return cb-ca;
@@ -1266,6 +1298,10 @@ function renderGlobalCostTwilio(){
     '<strong>Scope &amp; known gaps</strong><br>'+
     allCountries.length+' markets shown — Twilio-priced countries with order-volume data on file. '+EXCLUDED_NO_ORDERS.length+' Twilio-priced countries excluded for missing order data: '+EXCLUDED_NO_ORDERS.join(', ')+'. '+
     'Rows tagged <span style="font-size:9px;font-weight:600;color:var(--em);background:var(--em-bg);padding:1px 5px;border-radius:3px;">+FEES</span> (US, Canada) exclude an additional, unquantified Twilio carrier-fee surcharge (twilio.com/sms/pricing).'+
+    '</div>'+
+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;">'+
+    riaSendingToggleHtml()+
     '</div>'+
 
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">'+
@@ -2368,7 +2404,7 @@ function renderCalc(){
   const US_TOTAL_SMS    = 50870513;
   const OPTIN_BASELINE_PCT = 64; // current real SMS opt-in rate (confirmed, replaces prior stale 26.05% figure)
 
-  const calcCountries = Object.keys(SMS_COSTS).sort();
+  const calcCountries = Object.keys(SMS_COSTS).filter(function(c){ return !getRiaSendingOnly() || isRiaSendingCountry(c); }).sort();
   const countryOptions = calcCountries.map(function(co){
     return '<option value="'+co+'"'+(co==='United States'?' selected':'')+'>'+co+'</option>';
   }).join('');
@@ -2410,6 +2446,8 @@ function renderCalc(){
     + 'Baseline is today\'s real SMS opt-in rate ('+OPTIN_BASELINE_PCT+'%). '
     + 'Used as a proxy for all countries, same as participation % — no other market has its own opt-in data on file yet.'
     + '</div>'
+
+    + '<div style="margin-bottom:12px;">'+riaSendingToggleHtml()+'</div>'
 
     // ── Controls ──
     + '<div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;padding:0 0 20px;border-bottom:1px solid var(--border);margin-bottom:20px;">'
@@ -2601,7 +2639,9 @@ function renderCalcTwilio(){
   const US_EVENTS = [{"name": "Transaction Ready for Pickup", "count": 24928310, "pct": 35.6486, "note": "24,928,310 notifications sent in 2025 (35.6486% of 69,927,961 US orders)"}, {"name": "Transaction Paid", "count": 24473515, "pct": 34.9982, "note": "24,473,515 notifications sent in 2025 (34.9982% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (3 Days)", "count": 466797, "pct": 0.6675, "note": "466,797 notifications sent in 2025 (0.6675% of 69,927,961 US orders)"}, {"name": "Transaction Canceled", "count": 169207, "pct": 0.242, "note": "169,207 notifications sent in 2025 (0.242% of 69,927,961 US orders)"}, {"name": "Strategic Retail Partners - Refund Completed", "count": 168439, "pct": 0.2409, "note": "168,439 notifications sent in 2025 (0.2409% of 69,927,961 US orders)"}, {"name": "Strategic Retail Partners - Available for Refund", "count": 168228, "pct": 0.2406, "note": "168,228 notifications sent in 2025 (0.2406% of 69,927,961 US orders)"}, {"name": "Transaction Needs Information", "count": 125012, "pct": 0.1788, "note": "125,012 notifications sent in 2025 (0.1788% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (7 Days)", "count": 97481, "pct": 0.1394, "note": "97,481 notifications sent in 2025 (0.1394% of 69,927,961 US orders)"}, {"name": "Transaction Resent", "count": 43828, "pct": 0.0627, "note": "43,828 notifications sent in 2025 (0.0627% of 69,927,961 US orders)"}, {"name": "Customer Opt-In", "count": 39912, "pct": 0.0571, "note": "39,912 notifications sent in 2025 (0.0571% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (14 Days)", "count": 33822, "pct": 0.0484, "note": "33,822 notifications sent in 2025 (0.0484% of 69,927,961 US orders)"}, {"name": "Agent activated due to paid credit", "count": 24078, "pct": 0.0344, "note": "24,078 notifications sent in 2025 (0.0344% of 69,927,961 US orders)"}, {"name": "Transaction Rejected", "count": 21097, "pct": 0.0302, "note": "21,097 notifications sent in 2025 (0.0302% of 69,927,961 US orders)"}, {"name": "Requires interview", "count": 16610, "pct": 0.0238, "note": "16,610 notifications sent in 2025 (0.0238% of 69,927,961 US orders)"}, {"name": "Refund Reminder (3 Day)", "count": 30414, "pct": 0.0435, "note": "30,414 notifications sent in 2025 (0.0435% of 69,927,961 US orders)"}, {"name": "Refund Reminder (7 Day)", "count": 19123, "pct": 0.0273, "note": "19,123 notifications sent in 2025 (0.0273% of 69,927,961 US orders)"}, {"name": "Refund Reminder (14 Day)", "count": 14699, "pct": 0.021, "note": "14,699 notifications sent in 2025 (0.021% of 69,927,961 US orders)"}, {"name": "Agent suspended due to past-due balance", "count": 11480, "pct": 0.0164, "note": "11,480 notifications sent in 2025 (0.0164% of 69,927,961 US orders)"}, {"name": "Transaction Ready for Refund", "count": 9604, "pct": 0.0137, "note": "9,604 notifications sent in 2025 (0.0137% of 69,927,961 US orders)"}, {"name": "Agent suspended 7 days reminder", "count": 2948, "pct": 0.0042, "note": "2,948 notifications sent in 2025 (0.0042% of 69,927,961 US orders)"}, {"name": "Agent suspended 15 days reminder", "count": 2700, "pct": 0.0039, "note": "2,700 notifications sent in 2025 (0.0039% of 69,927,961 US orders)"}, {"name": "Transaction Cancelled (Time Limit Expired)", "count": 1980, "pct": 0.0028, "note": "1,980 notifications sent in 2025 (0.0028% of 69,927,961 US orders)"}, {"name": "Refund Reminder (1 Day)", "count": 522, "pct": 0.0007, "note": "522 notifications sent in 2025 (0.0007% of 69,927,961 US orders)"}, {"name": "Refund Reminder (2 Day)", "count": 431, "pct": 0.0006, "note": "431 notifications sent in 2025 (0.0006% of 69,927,961 US orders)"}, {"name": "Refund Reminder (20 Day)", "count": 189, "pct": 0.0003, "note": "189 notifications sent in 2025 (0.0003% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (1 Day)", "count": 42, "pct": 0.0001, "note": "42 notifications sent in 2025 (0.0001% of 69,927,961 US orders)"}, {"name": "Transaction Pick Up Reminder (2 Days)", "count": 42, "pct": 0.0001, "note": "42 notifications sent in 2025 (0.0001% of 69,927,961 US orders)"}, {"name": "Transaction Sent To Be Paid", "count": 2, "pct": 0.0, "note": "2 notifications sent in 2025 (0.0% of 69,927,961 US orders)"}, {"name": "Transaction Cancelled (Test Transaction)", "count": 1, "pct": 0.0, "note": "1 notifications sent in 2025 (0.0% of 69,927,961 US orders)"}];
   const US_TOTAL_ORDERS = 69927961;
 
-  const calcCountries = Object.keys(TWILIO_SMS_COSTS).sort();
+  const calcCountries = Object.keys(TWILIO_SMS_COSTS).filter(function(c){
+    return !getRiaSendingOnly() || isRiaSendingCountry(c);
+  }).sort();
   const countryOptions = calcCountries.map(function(co){
     return '<option value="'+co+'"'+(co==='United States'?' selected':'')+'>'+co+'</option>';
   }).join('');
@@ -2646,6 +2686,8 @@ function renderCalcTwilio(){
     + 'US and Canada rates carry an additional, unquantified carrier-fee surcharge per the contract (see twilio.com/sms/pricing) — not included in the figures below. '
     + 'Algeria, Colombia, Equatorial Guinea, Guadeloupe, Haiti, Martinique, Mexico, Palestine, Puerto Rico, Réunion, and Tunisia have a Twilio rate but no order-volume data on file — enter total orders manually for those.'
     + '</div>'
+
+    + '<div style="margin-bottom:12px;">'+riaSendingToggleHtml()+'</div>'
 
     + '<div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;padding:0 0 20px;border-bottom:1px solid var(--border);margin-bottom:20px;">'
 
@@ -2914,7 +2956,7 @@ function renderOptInImpact(){
   // 2025 defaults above.
   const ROWS_TO_USE = (oiSaved && Array.isArray(oiSaved.rows) && oiSaved.rows.length) ? oiSaved.rows : DEFAULT_ROWS;
 
-  const calcCountries = Object.keys(SMS_COSTS).sort();
+  const calcCountries = Object.keys(SMS_COSTS).filter(function(c){ return !getRiaSendingOnly() || isRiaSendingCountry(c); }).sort();
   const countryOptions = calcCountries.map(function(co){
     return '<option value="'+co+'"'+(co==='United States'?' selected':'')+'>'+co+'</option>';
   }).join('');
@@ -2983,6 +3025,8 @@ function renderOptInImpact(){
     + '</tr></thead><tbody id="oi-rows-body">'
     + rows
     + '</tbody></table>'
+
+    + '<div style="margin:8px 0 4px;">'+riaSendingToggleHtml()+'</div>'
 
     + '<div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--border);margin-top:8px;">'
     + '<div style="display:flex;flex-direction:column;gap:6px;">'
@@ -3203,7 +3247,9 @@ function renderOptInImpactByJourney(){
   ];
   const JOURNEYS_TO_USE = (ojSaved && Array.isArray(ojSaved.rows) && ojSaved.rows.length) ? ojSaved.rows : DEFAULT_JOURNEYS;
 
-  const countryList = Object.keys(window._oiSmsCosts || {}).sort();
+  const countryList = Object.keys(window._oiSmsCosts || {}).filter(function(c){
+    return !getRiaSendingOnly() || isRiaSendingCountry(c);
+  }).sort();
   const countryOptions = countryList.map(function(co){
     return '<option value="'+co+'">'+co+'</option>';
   }).join('');
@@ -3269,6 +3315,8 @@ function renderOptInImpactByJourney(){
     + '</tr></thead><tbody id="oj-rows-body">'
     + rows
     + '</tbody></table>'
+
+    + '<div style="margin:8px 0 4px;">'+riaSendingToggleHtml()+'</div>'
 
     + '<div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--border);margin-top:8px;">'
     + '<div style="display:flex;flex-direction:column;gap:6px;">'
