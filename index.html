@@ -425,11 +425,6 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 </div>
 <div id="p1-content"></div></div>
 <div class="page" id="p2"><div class="page-title"><span style="display:flex;align-items:center;gap:8px;">Customer journeys<span id="p2-iter-badge" style="display:none;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 10px;border-radius:20px;background:var(--purple-bg);color:var(--purple);">via Iterable</span></span><span class="page-note" id="p2-page-note">What messages a customer receives — happy and unhappy paths</span></div>
-<div id="p2-env-row" style="display:none;align-items:center;gap:8px;margin-bottom:14px;">
-  <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Environment:</span>
-  <span class="aud-pill" id="iter-env-opt-prod" data-env="prod" onclick="setIterEnv('prod')">Ria Digital Prod</span>
-  <span class="aud-pill" id="iter-env-opt-sandbox" data-env="sandbox" onclick="setIterEnv('sandbox')">Sandbox</span>
-</div>
 <div id="p2-search-row" style="display:none;align-items:center;margin-bottom:16px;">
   <div class="search-wrap">
     <span class="search-icon">&#128269;</span>
@@ -489,6 +484,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 
 <div class="page" id="p8"><div class="page-title">Opt-in rates <span class="page-note" id="p8-page-note">Daily-captured from the Opt-in PowerBI dashboard — global or single country</span></div><div id="p8-content"></div></div>
 <div class="page" id="p9"><div class="page-title">Full opt-in cost impact <span class="page-note">2025 actual SMS cost vs. expected cost if every customer opted in</span></div><div id="p9-content"></div></div>
+<div class="page" id="p10"><div class="page-title">Opt-in cost impact (by journey) <span class="page-note">Same question, modeled by delivery-path journey instead of flat events</span></div><div id="p10-content"></div></div>
 
 </div><!-- /main-content -->
 </div><!-- /app-shell -->
@@ -498,11 +494,8 @@ const INTENTS = [{"key":"documents_required","label":"Documents Required","icon"
 
 /* ── STATE ── */
 let activeIntent = 'all';
-let activeAudience = 'bm'; // structural: 'bm' or 'digital'. Under Ria brand these are B&M/Digital; under Xe brand they're relabeled Consumer/Corporate (see updateAudienceLabels)
+let activeAudience = 'bm'; // structural now: 'bm' or 'digital' (only meaningful when activeBrand==='ria')
 let activeBrand = 'ria'; // 'ria' or 'xe'
-let iterEnv = 'prod'; // 'prod' or 'sandbox' — which Ria Digital Prod environment the Customer Journeys page reads from. Not used for Xe (Xe Consumer only has a Prod pull so far, see XE_ITER_DATA_FILE)
-const ITER_DATA_FILES = { prod: 'data/iterable-journeys-ria-prod.json', sandbox: 'data/iterable-journeys.json' };
-const XE_ITER_DATA_FILE = 'data/iterable-journeys-xe-prod.json'; // Xe Consumer journeys, from the hand-picked journey list Paul chose in Iterable (Sep 2026) — Prod only, no Sandbox pull built for Xe
 let activeTab = 'p0';
 let searchQuery = '';
 let p1CountryFilter = 'all';
@@ -604,7 +597,6 @@ function updateURLState(){
   if(activeTab !== 'p0') params.set('tab', activeTab);
   if(activeIntent !== 'all') params.set('intent', activeIntent);
   if(activeAudience !== 'bm') params.set('aud', activeAudience);
-  if(iterEnv !== 'prod') params.set('env', iterEnv);
   if(activeTab === 'p0' && window._flowState){
     if(window._flowState.event !== 'all') params.set('event', window._flowState.event);
     if(window._flowState.country !== 'all') params.set('country', window._flowState.country);
@@ -620,7 +612,6 @@ function applyURLState(){
   if(params.has('tab')) activeTab = params.get('tab');
   if(params.has('intent')) activeIntent = params.get('intent');
   if(params.has('aud')) activeAudience = params.get('aud');
-  if(params.has('env') && ITER_DATA_FILES[params.get('env')]) iterEnv = params.get('env');
   if(params.has('event') || params.has('country')){
     window._flowState = window._flowState || {event:'all', country:'United States'};
     if(params.has('event')) window._flowState.event = params.get('event');
@@ -699,17 +690,6 @@ const NAV_CONFIG = {
   ],
 };
 
-// Xe brand's nav (Sep 2026): only Consumer has anything built so far — the
-// hand-picked journey list Paul chose in Iterable, read via the same
-// renderIterableJourneys() pipeline as Ria Digital, pointed at
-// XE_ITER_DATA_FILE instead. Xe Corporate has no data yet, so it isn't
-// listed here — renderSidebarNav() shows a placeholder note for it instead.
-const XE_NAV_CONSUMER = [
-  {section:'Explore', items:[
-    {id:'p2', icon:'', label:'Customer journeys'},
-  ]},
-];
-
 // Tools — cross-cutting utilities that aren't tied to Brand or B&M/Digital,
 // so they live in their own sidebar mode (see setHubMode) rather than nested
 // under a specific audience. Same page ids as before; only the nav grouping moved.
@@ -720,6 +700,7 @@ const TOOLS_NAV = [
     {id:'p4', icon:'', label:'Global deployment cost'},
     {id:'p6', icon:'', label:'Global deployment Twilio'},
     {id:'p9', icon:'', label:'Full opt-in cost impact'},
+    {id:'p10', icon:'', label:'Opt-in cost impact (by journey)'},
   ]},
   {section:'Methodology', items:[
     {id:'p7', icon:'', label:'How we calculate this'},
@@ -748,19 +729,10 @@ function renderNavSections(sections){
 
 function renderSidebarNav(){
   const nav = document.getElementById('sb-nav');
-  // Tools are Ria-specific for now, so Xe shows a "not built yet" note in
-  // Tools mode regardless of audience — check brand + mode before audience.
+  // Tools are Ria-specific for now, so Xe shows the same "not built yet" note
+  // in Tools mode as it does in Explore — check brand before mode.
   if(activeBrand === 'xe'){
-    if(hubMode === 'tools'){
-      nav.innerHTML = '<div style="padding:16px 12px;font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;">Tools aren\'t built for Xe yet.</div>';
-      return;
-    }
-    if(activeAudience === 'bm'){
-      // Consumer: the only Xe slice with real data so far (Sep 2026).
-      renderNavSections(XE_NAV_CONSUMER);
-      return;
-    }
-    nav.innerHTML = '<div style="padding:16px 12px;font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;">Xe Corporate isn\'t built yet — this option exists so the structure is ready when that work starts.</div>';
+    nav.innerHTML = '<div style="padding:16px 12px;font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;">Xe isn\'t built yet — this option exists so the structure is ready when that work starts.</div>';
     return;
   }
   if(hubMode === 'tools'){
@@ -778,20 +750,15 @@ window.setHubMode = function(mode){
   const hubToggle = document.getElementById('hub-mode-toggle');
   if(hubToggle) hubToggle.classList.toggle('tools-active', mode === 'tools');
 
-  // Audience (B&M/Digital, or Consumer/Corporate under Xe) doesn't apply to
-  // Tools — hide it there. Tools are Ria-specific for now, so Xe in Tools
-  // mode shows a "not built yet" placeholder regardless of audience.
+  // Audience (B&M/Digital) doesn't apply to Tools — hide it there. The Ria/Xe
+  // switch DOES still apply in Tools mode: Tools are Ria-specific for now, so
+  // switching to Xe there shows the same "not built yet" placeholder as Explore.
   const audToggle = document.getElementById('audience-switcher');
   if(audToggle) audToggle.style.display = mode === 'tools' ? 'none' : 'flex';
 
   renderSidebarNav();
   if(activeBrand === 'xe'){
-    if(mode === 'explore' && activeAudience === 'bm'){
-      activateNavTabFor(activeTab);
-      renderPage(activeTab);
-    } else {
-      renderXePlaceholder();
-    }
+    renderXePlaceholder();
   } else {
     if(mode === 'tools' && TOOLS_PAGE_IDS.indexOf(activeTab) === -1) activeTab = TOOLS_PAGE_IDS[0];
     activateNavTabFor(activeTab);
@@ -801,24 +768,12 @@ window.setHubMode = function(mode){
 };
 
 function setStructuralAudience(aud){
+  if(activeBrand !== 'ria') return;
   activeAudience = aud;
   document.querySelectorAll('.aud-toggle-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.aud===aud); });
   const audToggle = document.getElementById('audience-switcher');
   if(audToggle) audToggle.classList.toggle('digital-active', aud === 'digital');
   renderSidebarNav();
-
-  if(activeBrand === 'xe'){
-    // Xe: Consumer (bm) has real journey data; Corporate (digital) doesn't yet.
-    if(aud === 'bm'){
-      activateNavTabFor(activeTab);
-      renderPage(activeTab);
-    } else {
-      renderXePlaceholder();
-    }
-    updateURLState();
-    return;
-  }
-
   // Country lists differ by audience (real countries for B&M vs Digital's two regions),
   // so reset the Flow Map default rather than carry over a filter that won't match anything.
   window._flowState = {event:'all', country: aud==='digital' ? 'Digital — Global' : 'United States'};
@@ -833,6 +788,8 @@ function setBrand(brand){
   document.querySelectorAll('#brand-toggle .brand-toggle-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.brand===brand); });
   const toggle = document.getElementById('brand-toggle');
   if(toggle) toggle.classList.toggle('xe-active', brand === 'xe');
+  const audSwitcher = document.getElementById('audience-switcher');
+  if(audSwitcher) audSwitcher.classList.toggle('disabled', brand === 'xe');
   updateAudienceLabels(brand);
 
   if(brand === 'ria'){
@@ -841,19 +798,8 @@ function setBrand(brand){
     activateNavTabFor(activeTab);
     renderPage(activeTab);
   } else {
-    // Xe: default to Consumer, the only slice with real data (Sep 2026) —
-    // unless Corporate was already selected (e.g. arriving via a deep link).
-    if(activeAudience !== 'bm' && activeAudience !== 'digital') activeAudience = 'bm';
-    document.querySelectorAll('.aud-toggle-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.aud===activeAudience); });
-    const audToggle = document.getElementById('audience-switcher');
-    if(audToggle) audToggle.classList.toggle('digital-active', activeAudience === 'digital');
     renderSidebarNav();
-    if(activeAudience === 'bm' && hubMode !== 'tools'){
-      activateNavTabFor(activeTab);
-      renderPage(activeTab);
-    } else {
-      renderXePlaceholder();
-    }
+    renderXePlaceholder();
   }
   updateURLState();
 }
@@ -882,21 +828,11 @@ function renderXePlaceholder(){
     document.querySelector('.main-content').appendChild(holder);
   }
   holder.classList.add('active');
-  // Only Xe Consumer (Explore mode) has real data so far (Sep 2026) — this
-  // placeholder covers the other two not-yet-built corners: Xe Corporate,
-  // and Xe in Tools mode (Tools are Ria-specific for now).
-  const isTools = hubMode === 'tools';
-  const title = isTools ? 'Xe Tools' : 'Xe Corporate';
-  const body = isTools
-    ? 'Tools aren’t built for Xe yet.'
-    : 'Xe Corporate isn’t built yet — only Xe Consumer has real journey data so far.';
-  const backLabel = isTools ? 'Back to Explore' : 'Go to Xe Consumer';
-  const backAction = isTools ? "setHubMode('explore')" : "setStructuralAudience('bm')";
-  holder.innerHTML = '<div class="page-title">'+esc(title)+' <span class="page-note">Not built yet</span></div>'
+  holder.innerHTML = '<div class="page-title">Xe <span class="page-note">Not built yet</span></div>'
     + '<div style="max-width:480px;padding:60px 0;text-align:center;margin:0 auto;">'
-    + '<div style="font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text);">'+esc(title)+' isn’t built yet</div>'
-    + '<div style="font-size:13px;color:var(--muted);line-height:1.6;">'+esc(body)+' This option exists in the switcher so the structure is ready for when that work starts.</div>'
-    + '<button class="btn-primary" style="margin-top:20px;" onclick="'+backAction+'">'+esc(backLabel)+'</button>'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text);">Xe isn\'t built yet</div>'
+    + '<div style="font-size:13px;color:var(--muted);line-height:1.6;">This option exists in the switcher so the structure is ready for when Xe messaging work starts. Nothing here is designed or populated yet.</div>'
+    + '<button class="btn-primary" style="margin-top:20px;" onclick="setBrand(\'ria\')">Back to Ria</button>'
     + '</div>';
 }
 
@@ -935,6 +871,7 @@ function renderPage(id){
   if(id==='p6') renderGlobalCostTwilio();
   if(id==='p8') renderOptin();
   if(id==='p9') renderOptInImpact();
+  if(id==='p10') renderOptInImpactByJourney();
 }
 
 /* ── GLOBAL DEPLOYMENT COST ── */
@@ -1402,38 +1339,16 @@ function iterMatches(text, query){
   return (text||'').toLowerCase().indexOf(query.toLowerCase()) !== -1;
 }
 
-function setIterEnv(env){
-  if(!ITER_DATA_FILES[env] || iterEnv === env) return;
-  iterEnv = env;
-  _iterCatState = {}; _iterJourneyState = {}; _iterExpanded = {}; // don't carry open/closed state across environments, they don't share journey IDs
-  updateURLState();
-  renderIterableJourneys();
-}
-
 async function renderIterableJourneys(){
   const container = document.getElementById('p2-content');
   const badge = document.getElementById('p2-iter-badge');
-  const envRow = document.getElementById('p2-env-row');
   const searchRow = document.getElementById('p2-search-row');
   const pageNote = document.getElementById('p2-page-note');
   container.innerHTML = '<div style="padding:60px;text-align:center;color:var(--muted);font-size:13px;">Loading journeys…</div>';
 
-  // The Sandbox/Prod environment toggle is a Ria Digital thing — Xe Consumer
-  // only has a single Prod pull so far (no Xe Sandbox), so there's nothing
-  // to toggle there.
-  if(envRow){
-    if(activeBrand === 'xe'){
-      envRow.style.display = 'none';
-    } else {
-      envRow.style.display = 'flex';
-      envRow.querySelectorAll('.aud-pill').forEach(function(b){ b.classList.toggle('active', b.dataset.env===iterEnv); });
-    }
-  }
-
-  const dataFile = activeBrand === 'xe' ? XE_ITER_DATA_FILE : (ITER_DATA_FILES[iterEnv] || ITER_DATA_FILES.prod);
   let data;
   try {
-    const res = await fetch(dataFile);
+    const res = await fetch('data/iterable-journeys.json');
     if(!res.ok) throw new Error('fetch failed: '+res.status);
     data = await res.json();
   } catch(e) {
@@ -1441,16 +1356,11 @@ async function renderIterableJourneys(){
     if(searchRow) searchRow.style.display = 'none';
     if(pageNote) pageNote.textContent = 'What messages a customer receives — happy and unhappy paths';
     container.innerHTML = '<div class="empty-intent"><div class="empty-intent-title">Could not load Iterable journey data</div>'
-      + '<div class="empty-intent-sub">Check that '+esc(dataFile)+' exists on this branch.</div></div>';
+      + '<div class="empty-intent-sub">Check that data/iterable-journeys.json exists on this branch.</div></div>';
     return;
   }
 
-  if(badge){
-    badge.style.display = 'inline-block';
-    // Xe only has a Prod pull (no Sandbox), so ignore iterEnv there — it's
-    // leftover Ria state that shouldn't drive Xe's badge.
-    badge.textContent = (activeBrand !== 'xe' && iterEnv === 'sandbox') ? 'via Iterable · Sandbox' : 'via Iterable · Prod';
-  }
+  if(badge) badge.style.display = 'inline-block';
   if(searchRow) searchRow.style.display = 'flex';
   if(pageNote){
     if(data.pulledAt){
@@ -1623,40 +1533,30 @@ const CAMPAIGN_STATUS_COLORS = {
   Finished:  {bg:'#EFEFEC', color:'#6E7178'},
   Aborted:   {bg:'#FCEAEA', color:'#B23A3A'},
 };
-// Real Iterable metrics (Sep 2026) — sourced from the pull script's
-// campaigns/metrics call (all-time, since each campaign's own creation
-// date). campaign.metrics is null when the pull couldn't fetch it (older
-// data pulled before this existed, or that one campaign's fetch failed).
-function formatMetricPct(n){
-  if(n === null || n === undefined || !isFinite(n)) return '—';
-  return n.toFixed(1)+'%';
+// Placeholder metrics for design/UX purposes only — no real Iterable metrics
+// endpoint is wired up yet. Numbers are seeded per campaign so they at least
+// stay stable across re-renders instead of jumping around randomly.
+function seededRandom(seed){
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
 }
-function formatMetricCount(n){
-  if(n === null || n === undefined) return '—';
-  return n.toLocaleString('en-US');
-}
-function realMetricsHtml(campaign){
-  const m = campaign.metrics;
+function mockMetricsHtml(campaignId){
+  const sent = Math.floor(500 + seededRandom(campaignId) * 15000);
+  const openRate = Math.round(15 + seededRandom(campaignId + 1) * 45);
+  const clickRate = Math.round(2 + seededRandom(campaignId + 2) * 18);
+  const unsubRate = (seededRandom(campaignId + 3) * 1.2).toFixed(2);
   function stat(value, label){
     return '<div style="flex:1;text-align:center;padding:10px 6px;">'
       + '<div style="font-size:18px;font-weight:700;color:var(--text);">'+value+'</div>'
       + '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;">'+label+'</div>'
       + '</div>';
   }
-  if(!m){
-    return '<div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg);padding:14px;justify-content:center;">'
-      + '<span style="font-size:11px;color:var(--muted);">No metrics available for this campaign yet.</span>'
-      + '</div>';
-  }
-  const denom = m.delivered || m.sent || 0;
-  const openRate = denom ? (m.opens||0)/denom*100 : null;
-  const clickRate = (m.clicks===null || m.clicks===undefined) ? null : (denom ? (m.clicks||0)/denom*100 : null);
-  const unsubRate = denom ? (m.unsubscribes||0)/denom*100 : null;
   return '<div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:relative;">'
-    + stat(formatMetricCount(m.sent), 'Sent')
-    + stat(formatMetricPct(openRate), 'Open rate')
-    + stat(clickRate===null?'—':formatMetricPct(clickRate), 'Click rate')
-    + stat(formatMetricPct(unsubRate), 'Unsubscribe rate')
+    + '<span style="position:absolute;top:4px;right:8px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--hint);">Mock data — not connected to real metrics</span>'
+    + stat(sent.toLocaleString(), 'Sent')
+    + stat(openRate+'%', 'Open rate')
+    + stat(clickRate+'%', 'Click rate')
+    + stat(unsubRate+'%', 'Unsubscribe rate')
     + '</div>';
 }
 
@@ -1730,7 +1630,7 @@ function toggleIterableCampaign(campId, journeyId){
 
   panel.innerHTML = '<div class="iter-expanded-hdr"><span>'+esc(target.name)+'</span>'
     + '<button onclick="toggleIterableCampaign('+target.id+','+journeyId+')" class="iter-expand-close">Collapse</button></div>'
-    + realMetricsHtml(target)
+    + mockMetricsHtml(target.id)
     + '<div class="iter-expanded-body" id="iter-expand-body-'+journeyId+'"></div>';
   panel.classList.add('open');
   mountExpandedInline(target, journeyId);
@@ -1813,14 +1713,12 @@ function mountExpandedInline(campaign, journeyId){
 
 
 function renderJourneys(){
-  if((activeBrand === 'ria' && activeAudience === 'digital') || (activeBrand === 'xe' && activeAudience === 'bm')){
+  if(activeBrand === 'ria' && activeAudience === 'digital'){
     renderIterableJourneys();
     return;
   }
   const p2Badge = document.getElementById('p2-iter-badge');
   if(p2Badge) p2Badge.style.display = 'none';
-  const p2EnvRow = document.getElementById('p2-env-row');
-  if(p2EnvRow) p2EnvRow.style.display = 'none';
   const p2SearchRow = document.getElementById('p2-search-row');
   if(p2SearchRow) p2SearchRow.style.display = 'none';
   const p2PageNote = document.getElementById('p2-page-note');
@@ -3267,6 +3165,268 @@ function recalcOptInImpact(){
   } catch(e){ /* storage unavailable — fail silently, nothing critical depends on this */ }
 }
 
+/* ── OPT-IN COST IMPACT, BY JOURNEY (delivery-path model) ── */
+function renderOptInImpactByJourney(){
+  const OJ_SAVE_KEY = 'riaMessagingHub_optInByJourney';
+  let ojSaved = null;
+  try { const raw = localStorage.getItem(OJ_SAVE_KEY); ojSaved = raw ? JSON.parse(raw) : null; } catch(e){ ojSaved = null; }
+
+  // The rate/order tables are populated by the flat-event calculator. If this
+  // page is opened first, prime them by rendering that one once (it writes to
+  // its own hidden container, so nothing visible changes here).
+  if(!window._oiSmsCosts || !window._oiCountryOrders){
+    try { renderOptInImpact(); } catch(e){ /* fall through — guarded below */ }
+  }
+  if(!window._oiSmsCosts || !window._oiCountryOrders){
+    document.getElementById('p10-content').innerHTML = '<div class="empty-intent"><div class="empty-intent-title">Could not load rate data</div>'
+      + '<div class="empty-intent-sub">Open the SMS cost calculator once, then come back.</div></div>';
+    return;
+  }
+
+
+  // Journeys / delivery paths. "msgs" = number of separate sends in that path.
+  // Percentages marked real come from 2025 US Power BI event rates; the two
+  // delivery-path splits are left blank on purpose — the flat event data can't
+  // distinguish "step 2 of a cash pickup" from "the only message for a bank
+  // deposit", so that split has to be supplied rather than guessed.
+  const DEFAULT_JOURNEYS = [
+    {name:'Cash pickup (Ready for Pickup + Paid)', msgs:2, pct:35.6486, real:true},
+    {name:'Bank deposit (single confirmation)', msgs:1, pct:'', real:false},
+    {name:'Info required', msgs:1, pct:0.1788, real:true},
+    {name:'Cancellation', msgs:1, pct:0.242, real:true},
+    {name:'Pick up reminders (3/7/14 day)', msgs:1, pct:0.8553, real:true},
+    {name:'Refund available + completed', msgs:2, pct:0.2406, real:true},
+    {name:'Refund reminders (3/7/14 day)', msgs:1, pct:0.0918, real:true},
+    {name:'Transaction resent', msgs:1, pct:0.0627, real:true},
+    {name:'Transaction rejected', msgs:1, pct:0.0302, real:true},
+    {name:'Requires interview', msgs:1, pct:0.0238, real:true},
+  ];
+  const JOURNEYS_TO_USE = (ojSaved && Array.isArray(ojSaved.rows) && ojSaved.rows.length) ? ojSaved.rows : DEFAULT_JOURNEYS;
+
+  const countryList = Object.keys(window._oiSmsCosts || {}).sort();
+  const countryOptions = countryList.map(function(co){
+    return '<option value="'+co+'">'+co+'</option>';
+  }).join('');
+
+  let rows = '';
+  JOURNEYS_TO_USE.forEach(function(r, i){
+    rows += '<tr id="oj_row_'+i+'">'
+      + '<td style="padding:7px 10px;"><input type="text" id="oj_name_'+i+'" value="'+esc(r.name)+'" oninput="recalcOptInByJourney()" style="width:100%;border:1px solid var(--border-mid);border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;"></td>'
+      + '<td style="padding:7px 10px;"><input type="number" id="oj_msgs_'+i+'" value="'+r.msgs+'" min="0" step="1" oninput="recalcOptInByJourney()" style="width:60px;border:1px solid var(--border-mid);border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;text-align:center;"></td>'
+      + '<td style="padding:7px 10px;"><input type="number" id="oj_pct_'+i+'" value="'+(r.pct===''?'':r.pct)+'" placeholder="—" min="0" max="100" step="0.0001" oninput="recalcOptInByJourney()" style="width:90px;border:1px solid '+(r.real===false?'var(--orange)':'var(--border-mid)')+';border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;text-align:center;">%</td>'
+      + '<td style="padding:7px 10px;font-size:12px;text-align:right;color:var(--muted);" id="oj_contrib_'+i+'">—</td>'
+      + '<td style="padding:7px 4px;text-align:center;"><button onclick="removeOptInJourneyRow('+i+')" title="Remove" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:14px;padding:2px 6px;">&times;</button></td>'
+      + '</tr>';
+  });
+  rows += '<tr><td colspan="5" style="padding:8px 10px;"><button onclick="addOptInJourneyRow()" style="font-size:11px;font-weight:600;color:var(--purple);background:var(--purple-bg);border:1px solid var(--purple);border-radius:6px;padding:5px 12px;cursor:pointer;">+ Add journey</button></td></tr>';
+
+  const html = '<div class="calc-wrap">'
+    + '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px;">'
+    + '<div style="flex:1;min-width:190px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">Avg. messages / order @ 100% opt-in</div>'
+    + '<div id="oj-avg-msgs" style="font-size:28px;font-weight:700;color:var(--text);">—</div>'
+    + '<div id="oj-avg-msgs-today" style="font-size:11px;color:var(--muted);margin-top:4px;">—</div>'
+    + '</div>'
+    + '<div style="flex:1;min-width:190px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">2025 actual SMS cost</div>'
+    + '<div id="oj-actual-display" style="font-size:28px;font-weight:700;color:var(--text);">—</div>'
+    + '</div>'
+    + '<div style="flex:1;min-width:190px;background:var(--card);border:1px solid var(--purple);border-radius:var(--radius);padding:16px 18px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">Expected cost @ 100% opt-in</div>'
+    + '<div id="oj-expected-cost" style="font-size:28px;font-weight:700;color:var(--purple);">—</div>'
+    + '</div>'
+    + '<div style="flex:1;min-width:190px;background:var(--card);border:1px solid var(--orange);border-radius:var(--radius);padding:16px 18px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">The gap</div>'
+    + '<div id="oj-gap" style="font-size:28px;font-weight:700;color:var(--orange);">—</div>'
+    + '</div>'
+    + '</div>'
+
+    + '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;">'
+    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px;">2025 actual vs. expected @ 100% opt-in</div>'
+    + '<div id="oj-chart-bars" style="display:flex;flex-direction:column;gap:14px;"></div>'
+    + '</div>'
+
+    + '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;">'
+    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px;">Messages per order, by journey</div>'
+    + '<div id="oj-journey-bars" style="display:flex;flex-direction:column;gap:10px;"></div>'
+    + '</div>'
+
+    + '<details style="border:1px solid var(--border);border-radius:var(--radius);">'
+    + '<summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:12px 18px;">&#9881; Adjust assumptions</summary>'
+    + '<div style="padding:0 18px 18px;">'
+    + '<div style="background:#FFF7ED;border:1px solid var(--orange);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:#7A3300;line-height:1.6;">'
+    + '<strong>Journeys, not individual events.</strong> Each row is one delivery path, and &ldquo;sends&rdquo; is how many separate messages that path triggers (cash pickup = 2: ready for pickup, then paid). '
+    + 'Percentages come from real 2025 US event rates, except <strong>Bank deposit</strong>, left blank on purpose &mdash; the event data can&rsquo;t tell a bank-deposit confirmation apart from step 2 of a cash pickup, so that split needs to be supplied rather than guessed.'
+    + '</div>'
+
+    + '<table style="width:100%;border-collapse:collapse;margin-bottom:8px;">'
+    + '<thead><tr style="border-bottom:1px solid var(--border);">'
+    + '<th style="padding:6px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Journey / delivery path</th>'
+    + '<th style="padding:6px 10px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Sends</th>'
+    + '<th style="padding:6px 10px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">% of orders</th>'
+    + '<th style="padding:6px 10px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Msgs / order</th>'
+    + '<th style="width:30px;"></th>'
+    + '</tr></thead><tbody id="oj-rows-body">'
+    + rows
+    + '</tbody></table>'
+
+    + '<div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--border);margin-top:8px;">'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Market</label>'
+    + '<select id="oj-country" onchange="recalcOptInByJourney()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);cursor:pointer;min-width:180px;">'
+    + countryOptions + '</select>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Total orders</label>'
+    + '<input id="oj-orders" type="number" min="0" oninput="recalcOptInByJourney()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);width:160px;">'
+    + '<div style="font-size:9px;color:var(--hint);">Auto-fills by market · editable</div>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">SMS rate</label>'
+    + '<div id="oj-rate-display" style="padding:8px 14px;border-radius:7px;border:1px solid var(--border);background:var(--purple-bg);font-size:13px;font-weight:600;color:var(--purple);min-width:100px;">—</div>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Billing segments / message</label>'
+    + '<input id="oj-segments" type="number" min="1" step="1" value="1" oninput="recalcOptInByJourney()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);width:100px;">'
+    + '<div style="font-size:9px;color:var(--hint);">160 chars = 1 segment</div>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Current opt-in rate</label>'
+    + '<input id="oj-current-optin" type="number" min="0.01" max="100" step="0.01" value="64" oninput="recalcOptInByJourney()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);width:100px;">'
+    + '<div style="font-size:9px;color:var(--hint);">Rows above scale up from this</div>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">2025 actual SMS cost</label>'
+    + '<input id="oj-actual-cost" type="number" min="0" placeholder="From billing" oninput="recalcOptInByJourney()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);width:160px;">'
+    + '<div style="font-size:9px;color:var(--hint);">You provide this</div>'
+    + '</div>'
+    + '</div>'
+    + '</div></details>'
+    + '</div>';
+
+  document.getElementById('p10-content').innerHTML = html;
+  window._ojRowCount = JOURNEYS_TO_USE.length;
+
+  const cSel = document.getElementById('oj-country');
+  cSel.value = (ojSaved && ojSaved.country && window._oiSmsCosts[ojSaved.country] !== undefined) ? ojSaved.country : 'United States';
+  document.getElementById('oj-orders').value = (ojSaved && ojSaved.orders !== undefined) ? ojSaved.orders : (window._oiCountryOrders[cSel.value] || 0);
+  if(ojSaved && ojSaved.optinRate !== undefined) document.getElementById('oj-current-optin').value = ojSaved.optinRate;
+  if(ojSaved && ojSaved.segments !== undefined) document.getElementById('oj-segments').value = ojSaved.segments;
+  if(ojSaved && ojSaved.actualCost !== undefined && ojSaved.actualCost !== null) document.getElementById('oj-actual-cost').value = ojSaved.actualCost;
+  recalcOptInByJourney();
+}
+
+function addOptInJourneyRow(){
+  const i = window._ojRowCount++;
+  const tbody = document.getElementById('oj-rows-body');
+  const tr = document.createElement('tr');
+  tr.id = 'oj_row_'+i;
+  tr.innerHTML = '<td style="padding:7px 10px;"><input type="text" id="oj_name_'+i+'" value="New journey" oninput="recalcOptInByJourney()" style="width:100%;border:1px solid var(--border-mid);border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;"></td>'
+    + '<td style="padding:7px 10px;"><input type="number" id="oj_msgs_'+i+'" value="1" min="0" step="1" oninput="recalcOptInByJourney()" style="width:60px;border:1px solid var(--border-mid);border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;text-align:center;"></td>'
+    + '<td style="padding:7px 10px;"><input type="number" id="oj_pct_'+i+'" value="" placeholder="—" min="0" max="100" step="0.0001" oninput="recalcOptInByJourney()" style="width:90px;border:1px solid var(--border-mid);border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;text-align:center;">%</td>'
+    + '<td style="padding:7px 10px;font-size:12px;text-align:right;color:var(--muted);" id="oj_contrib_'+i+'">—</td>'
+    + '<td style="padding:7px 4px;text-align:center;"><button onclick="removeOptInJourneyRow('+i+')" title="Remove" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:14px;padding:2px 6px;">&times;</button></td>';
+  tbody.insertBefore(tr, tbody.lastElementChild);
+  recalcOptInByJourney();
+}
+
+function removeOptInJourneyRow(i){
+  const row = document.getElementById('oj_row_'+i);
+  if(row) row.remove();
+  recalcOptInByJourney();
+}
+
+function recalcOptInByJourney(){
+  const country = document.getElementById('oj-country').value;
+  const rate = (window._oiSmsCosts || {})[country] || 0;
+  document.getElementById('oj-rate-display').textContent = '$'+rate.toFixed(4);
+
+  const ordersInput = document.getElementById('oj-orders');
+  if(document.activeElement !== ordersInput && (window._oiCountryOrders||{})[country] !== undefined){
+    ordersInput.value = window._oiCountryOrders[country];
+  }
+  const orders = parseFloat(ordersInput.value) || 0;
+  const segments = parseFloat(document.getElementById('oj-segments').value) || 1;
+
+  let avgToday = 0;
+  const bars = [];
+  for(let i=0; i<window._ojRowCount; i++){
+    const nameEl = document.getElementById('oj_name_'+i);
+    const msgsEl = document.getElementById('oj_msgs_'+i);
+    const pctEl  = document.getElementById('oj_pct_'+i);
+    const contribEl = document.getElementById('oj_contrib_'+i);
+    if(!msgsEl || !pctEl) continue;
+    const msgs = parseFloat(msgsEl.value) || 0;
+    const pctRaw = pctEl.value.trim();
+    if(pctRaw === ''){ if(contribEl) contribEl.textContent = 'not set'; continue; }
+    const pct = parseFloat(pctRaw) || 0;
+    const contrib = msgs * (pct/100);
+    avgToday += contrib;
+    if(contribEl) contribEl.textContent = contrib.toFixed(4);
+    bars.push({name: nameEl ? nameEl.value : ('Journey '+i), contrib: contrib});
+  }
+
+  const currentOptin = parseFloat(document.getElementById('oj-current-optin').value) || 100;
+  const avg100 = avgToday / (currentOptin/100);
+  const expectedCost = avg100 * orders * rate * segments;
+  const actualCost = parseFloat(document.getElementById('oj-actual-cost').value) || null;
+
+  document.getElementById('oj-avg-msgs').textContent = avg100.toFixed(3);
+  document.getElementById('oj-avg-msgs-today').textContent = 'vs. '+avgToday.toFixed(3)+' today at '+currentOptin+'% opt-in';
+  document.getElementById('oj-expected-cost').textContent = '$'+expectedCost.toLocaleString('en-US',{maximumFractionDigits:0});
+  document.getElementById('oj-actual-display').textContent = actualCost !== null ? ('$'+actualCost.toLocaleString('en-US',{maximumFractionDigits:0})) : 'Enter below';
+  const gapEl = document.getElementById('oj-gap');
+  if(actualCost !== null){
+    const gap = expectedCost - actualCost;
+    gapEl.textContent = (gap>=0?'+':'')+'$'+gap.toLocaleString('en-US',{maximumFractionDigits:0});
+  } else { gapEl.textContent = 'Enter 2025 cost'; }
+
+  const chartEl = document.getElementById('oj-chart-bars');
+  if(chartEl){
+    const maxVal = Math.max(actualCost || 0, expectedCost, 1);
+    function costBar(label, value, color, known){
+      const w = known ? Math.max(2, (value/maxVal)*100) : 0;
+      return '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">'
+        + '<span style="font-weight:600;color:var(--text);">'+label+'</span>'
+        + '<span style="font-weight:700;color:'+color+';">'+(known?('$'+value.toLocaleString('en-US',{maximumFractionDigits:0})):'—')+'</span>'
+        + '</div><div style="background:var(--bg);border-radius:6px;height:22px;overflow:hidden;">'
+        + '<div style="background:'+color+';height:100%;width:'+w+'%;border-radius:6px;transition:width .3s;"></div></div></div>';
+    }
+    chartEl.innerHTML = costBar('2025 actual', actualCost||0, 'var(--text)', actualCost!==null)
+      + costBar('Expected @ 100% opt-in', expectedCost, 'var(--purple)', true);
+  }
+
+  const jEl = document.getElementById('oj-journey-bars');
+  if(jEl){
+    const top = bars.filter(function(b){ return b.contrib > 0; }).sort(function(a,b){ return b.contrib-a.contrib; });
+    const max = top.length ? top[0].contrib : 1;
+    jEl.innerHTML = top.map(function(b){
+      const w = Math.max(2,(b.contrib/max)*100);
+      const share = avgToday>0 ? (b.contrib/avgToday*100) : 0;
+      return '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">'
+        + '<span style="color:var(--text);">'+esc(b.name)+'</span>'
+        + '<span style="color:var(--muted);">'+b.contrib.toFixed(3)+' msgs · '+share.toFixed(1)+'%</span>'
+        + '</div><div style="background:var(--bg);border-radius:5px;height:14px;overflow:hidden;">'
+        + '<div style="background:var(--orange);height:100%;width:'+w+'%;border-radius:5px;transition:width .3s;"></div></div></div>';
+    }).join('') || '<div style="font-size:12px;color:var(--muted);">No journeys with a rate set yet.</div>';
+  }
+
+  try{
+    const rowsToSave = [];
+    for(let i=0; i<window._ojRowCount; i++){
+      const nameEl = document.getElementById('oj_name_'+i);
+      const msgsEl = document.getElementById('oj_msgs_'+i);
+      const pctEl  = document.getElementById('oj_pct_'+i);
+      if(!nameEl || !msgsEl || !pctEl) continue;
+      rowsToSave.push({name:nameEl.value, msgs:parseFloat(msgsEl.value)||0, pct: pctEl.value.trim()===''?'':(parseFloat(pctEl.value)||0)});
+    }
+    localStorage.setItem('riaMessagingHub_optInByJourney', JSON.stringify({
+      rows: rowsToSave, country: country, orders: orders,
+      optinRate: currentOptin, segments: segments, actualCost: actualCost,
+    }));
+  } catch(e){ /* storage unavailable, non-critical */ }
+}
+
 async function loadSheetData() {
   const indicator = document.getElementById('sheet-indicator');
   if(indicator) indicator.textContent = '⟳ Syncing...';
@@ -3626,12 +3786,13 @@ if(initialBrandToggle) initialBrandToggle.classList.toggle('xe-active', activeBr
 document.querySelectorAll('.aud-toggle-opt').forEach(function(b){ b.classList.toggle('active', b.dataset.aud===activeAudience); });
 const initialAudSwitcher = document.getElementById('audience-switcher');
 if(initialAudSwitcher){
+  initialAudSwitcher.classList.toggle('disabled', activeBrand === 'xe');
   initialAudSwitcher.classList.toggle('digital-active', activeAudience === 'digital');
 }
 updateAudienceLabels(activeBrand);
 renderSidebarNav();
 buildIntentBar();
-if(activeBrand === 'xe' && !(hubMode === 'explore' && activeAudience === 'bm')){
+if(activeBrand === 'xe'){
   renderXePlaceholder();
 } else {
   activateNavTabFor(activeTab);
