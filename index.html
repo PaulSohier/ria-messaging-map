@@ -2908,7 +2908,7 @@ function sheetRowToTemplate(row, audience) {
 /* ── FULL OPT-IN COST IMPACT (Nick's model) ── */
 function renderOptInImpact(){
   const OI_SAVE_KEY = 'riaMessagingHub_optInImpact';
-  const OI_DATA_VERSION = 3; // bump this whenever the default event data changes, to force a one-time reset of saved values
+  const OI_DATA_VERSION = 4; // bump this whenever the default event data changes, to force a one-time reset of saved values
   function loadOptInSaved(){
     try{
       const raw = localStorage.getItem(OI_SAVE_KEY);
@@ -2924,47 +2924,48 @@ function renderOptInImpact(){
   const COUNTRY_ORDERS = {"Albania":87389,"Angola":48,"Antigua & Barbuda":11888,"Argentina":59436,"Armenia":38810,"Australia":2210390,"Austria":581002,"Bahamas":11,"Bahrain":281,"Barbados":5,"Belgium":2779711,"Belize":1,"Benin":47656,"Bolivia":4935,"Bosnia Herzegovina":2882,"Botswana":550,"Brazil":883,"British Virgin Islands":1,"Brunei":4963,"Bulgaria":259749,"Burkina Faso":21803,"Cambodia":683,"Cameroon":295770,"Canada":4843159,"Cape Verde":151,"Cayman Islands":1,"Chad":55383,"Chile":2893904,"Comoros":121930,"Congo Brazaville":131858,"Congo DRC":56287,"Cook Islands":1,"Croatia":4,"Cyprus":88201,"Czech Republic":159771,"Denmark":493048,"Dominican Republic":99,"Ecuador":13210,"El Salvador":3617,"Estonia":10525,"Fiji":404,"Finland":86847,"France":15495103,"Gabon":40045,"Gambia":1656,"Georgia":154382,"Germany":6274832,"Ghana":12,"Gibraltar":2,"Greece":440435,"Guam":4,"Guatemala":14859,"Guinea":13587,"Guinea Bissau":38366,"Guyana":229,"Honduras":128,"Hong Kong":6682,"Hungary":3744,"Iceland":17,"India":15,"Indonesia":573,"Ireland":252109,"Israel":370058,"Italy":10219696,"Ivory Coast":226333,"Jamaica":3,"Japan":250219,"Jordan":48782,"Kazakhstan":16937,"Kenya":1061,"Korea South":40664,"Kosovo":74821,"Kuwait":7421,"Kyrgyzstan":2016,"Laos":53,"Latvia":27773,"Lebanon":150,"Liberia":232,"Lithuania":8059,"Luxembourg":176191,"Macau":4,"Madagascar":8080,"Malawi":45,"Malaysia":4051990,"Maldives":30848,"Malta":98,"Mauritius":25262,"Moldova":40296,"Mongolia":788,"Montenegro":15283,"Morocco":30419,"Mozambique":38,"Netherlands":1099610,"New Zealand":508403,"Nicaragua":3,"Niger":4771,"North Macedonia":34638,"Norway":490052,"Oman":2655,"Panama":61,"Papua New Guinea":1,"Paraguay":479,"Peru":139,"Philippines":5761,"Poland":70433,"Portugal":1138144,"Qatar":67855,"Romania":28769,"Rwanda":32,"Saudi Arabia":9303,"Senegal":175581,"Serbia":66873,"Seychelles":6237,"Sierra Leone":24,"Singapore":95358,"Slovakia":156,"Slovenia":19,"Solomon Islands":7824,"South Africa":607391,"South Sudan":46,"Spain":17938861,"Sri Lanka":4,"Suriname":839,"Sweden":540774,"Switzerland":1547206,"Tanzania":3968,"Thailand":1130,"Togo":36264,"Trinidad & Tobago":1,"Turkey":107900,"Turks & Caicos":16114,"Uganda":484,"Ukraine":1,"United Arab Emirates":61984,"United Kingdom":5012286,"United States":46893281,"Vanuatu":29,"Zambia":470,"Zimbabwe":641};
 
   // Real US events, Jan 1 - Sep 9, 2026 (partial year, not annualized).
-  // "msgs" = average real SMS billing segments for that event's message(s) in
-  // the Messages Library (160 chars = 1 segment, same rule used elsewhere in
-  // the Hub), averaged across every live SMS variant found for that event.
-  // Events with no live SMS content in the Library yet (new Fraud Model
-  // events, Customer Opt-In, the test-transaction row) are left at 1 —
+  // "msgs" = the real, dominant SMS billing segment count for that event
+  // (160 chars = 1 segment, computed per real message then taking the most
+  // common value across every live SMS variant found for that event — never
+  // a fractional "1.7 messages", since no single message is ever sent that
+  // way). Events with no live SMS content in the Library yet (new Fraud
+  // Model events, Customer Opt-In, the test-transaction row) are left at 1 —
   // unmeasured, not guessed.
   // All editable via the "Adjust assumptions" panel below the main view.
   const DEFAULT_ROWS = [
-    {name:'Transaction Ready for Pickup', msgs:1.371, pct:79.9729},
-    {name:'Transaction Paid', msgs:1.413, pct:67.7461},
-    {name:'Transaction Pick Up Reminder (3 Days)', msgs:2.144, pct:2.4670},
-    {name:'Transaction Canceled', msgs:1.378, pct:0.5892},
-    {name:'Strategic Retail Partners - Available for Refund', msgs:1.081, pct:0.5235},
-    {name:'Strategic Retail Partners - Refund Completed', msgs:0.969, pct:0.5199},
-    {name:'Transaction Pick Up Reminder (7 Days)', msgs:1.989, pct:0.3438},
-    {name:'Transaction Needs Information', msgs:1.926, pct:0.2211},
-    {name:'Agent activated due to paid credit', msgs:1.206, pct:0.1474},
-    {name:'Transaction Pick Up Reminder (14 Days)', msgs:1.892, pct:0.1269},
-    {name:'Transaction Resent', msgs:1.217, pct:0.1260},
+    {name:'Transaction Ready for Pickup', msgs:1, pct:79.9729},
+    {name:'Transaction Paid', msgs:2, pct:67.7461},
+    {name:'Transaction Pick Up Reminder (3 Days)', msgs:3, pct:2.4670},
+    {name:'Transaction Canceled', msgs:2, pct:0.5892},
+    {name:'Strategic Retail Partners - Available for Refund', msgs:2, pct:0.5235},
+    {name:'Strategic Retail Partners - Refund Completed', msgs:1, pct:0.5199},
+    {name:'Transaction Pick Up Reminder (7 Days)', msgs:2, pct:0.3438},
+    {name:'Transaction Needs Information', msgs:2, pct:0.2211},
+    {name:'Agent activated due to paid credit', msgs:2, pct:0.1474},
+    {name:'Transaction Pick Up Reminder (14 Days)', msgs:2, pct:0.1269},
+    {name:'Transaction Resent', msgs:2, pct:0.1260},
     {name:'Customer Opt-In', msgs:1, pct:0.1046},
-    {name:'Agent suspended due to past-due balance', msgs:1.878, pct:0.0687},
-    {name:'Transaction Rejected', msgs:1.619, pct:0.0682},
-    {name:'Requires interview', msgs:1.337, pct:0.0379},
-    {name:'Transaction Ready for Refund', msgs:1.315, pct:0.0298},
-    {name:'Refund Reminder (3 Day)', msgs:1.650, pct:0.0174},
-    {name:'Agent suspended 7 days reminder', msgs:1.878, pct:0.0154},
-    {name:'Agent suspended 15 days reminder', msgs:2.062, pct:0.0138},
-    {name:'Refund Reminder (7 Day)', msgs:1.650, pct:0.0112},
+    {name:'Agent suspended due to past-due balance', msgs:2, pct:0.0687},
+    {name:'Transaction Rejected', msgs:2, pct:0.0682},
+    {name:'Requires interview', msgs:2, pct:0.0379},
+    {name:'Transaction Ready for Refund', msgs:2, pct:0.0298},
+    {name:'Refund Reminder (3 Day)', msgs:2, pct:0.0174},
+    {name:'Agent suspended 7 days reminder', msgs:2, pct:0.0154},
+    {name:'Agent suspended 15 days reminder', msgs:3, pct:0.0138},
+    {name:'Refund Reminder (7 Day)', msgs:2, pct:0.0112},
     {name:'Fraud Model - Transaction Needs Information', msgs:1, pct:0.0105},
-    {name:'Refund Reminder (14 Day)', msgs:1.606, pct:0.0084},
-    {name:'Transaction Cancelled (Time Limit Expired)', msgs:1.857, pct:0.0050},
+    {name:'Refund Reminder (14 Day)', msgs:2, pct:0.0084},
+    {name:'Transaction Cancelled (Time Limit Expired)', msgs:2, pct:0.0050},
     {name:'Fraud Model - Transaction Released', msgs:1, pct:0.0020},
     {name:'Fraud Model - Information Request Timed Out', msgs:1, pct:0.0008},
-    {name:'Refund Reminder (1 Day)', msgs:1.644, pct:0.0007},
-    {name:'Refund Reminder (2 Day)', msgs:1.650, pct:0.0005},
-    {name:'Refund Reminder (20 Day)', msgs:1.656, pct:0.0002},
+    {name:'Refund Reminder (1 Day)', msgs:2, pct:0.0007},
+    {name:'Refund Reminder (2 Day)', msgs:2, pct:0.0005},
+    {name:'Refund Reminder (20 Day)', msgs:2, pct:0.0002},
     {name:'Fraud Model - Transaction on Legal Hold', msgs:1, pct:0.0001},
-    {name:'Transaction Pick Up Reminder (2 Days)', msgs:2.144, pct:0.0001},
+    {name:'Transaction Pick Up Reminder (2 Days)', msgs:3, pct:0.0001},
     {name:'Fraud Model - Transaction Rejected', msgs:1, pct:0.0000},
-    {name:'Correspondent Delay', msgs:1.825, pct:0.0000},
-    {name:'Correspondent Delay Resolved', msgs:1.728, pct:0.0000},
+    {name:'Correspondent Delay', msgs:2, pct:0.0000},
+    {name:'Correspondent Delay Resolved', msgs:2, pct:0.0000},
     {name:'Transaction Cancelled (Test Transaction)', msgs:1, pct:0.0000},
   ];
   // Use whatever the person last saved, if anything — otherwise the real
@@ -2980,7 +2981,7 @@ function renderOptInImpact(){
   ROWS_TO_USE.forEach(function(r, i){
     rows += '<tr id="oi_row_'+i+'">'
       + '<td style="padding:6px 10px;"><input type="text" id="oi_name_'+i+'" value="'+esc(r.name)+'" oninput="recalcOptInImpact()" style="width:100%;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;"></td>'
-      + '<td style="padding:6px 10px;"><input type="number" id="oi_msgs_'+i+'" value="'+r.msgs+'" min="0" step="0.001" oninput="recalcOptInImpact()" style="width:60px;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;text-align:center;"></td>'
+      + '<td style="padding:6px 10px;"><input type="number" id="oi_msgs_'+i+'" value="'+r.msgs+'" min="0" step="1" oninput="recalcOptInImpact()" style="width:60px;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;text-align:center;"></td>'
       + '<td style="padding:6px 10px;"><input type="number" id="oi_pct_'+i+'" value="'+r.pct+'" min="0" max="100" step="0.01" oninput="recalcOptInImpact()" style="width:80px;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;text-align:center;">%</td>'
       + '<td style="padding:6px 10px;font-size:12px;text-align:right;color:var(--muted);" id="oi_contrib_'+i+'">—</td>'
       + '<td style="padding:6px 4px;text-align:center;"><button onclick="removeOptInRow('+i+')" title="Remove this row" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:14px;line-height:1;padding:2px 6px;">&times;</button></td>'
@@ -3033,7 +3034,7 @@ function renderOptInImpact(){
     + '<table style="width:100%;border-collapse:collapse;margin-bottom:8px;">'
     + '<thead><tr style="border-bottom:1px solid var(--border);">'
     + '<th style="padding:6px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Message</th>'
-    + '<th style="padding:6px 10px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Avg. SMS segments</th>'
+    + '<th style="padding:6px 10px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Number of messages sent</th>'
     + '<th style="padding:6px 10px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">% of orders</th>'
     + '<th style="padding:6px 10px;text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);">Contribution</th>'
     + '<th style="width:30px;"></th>'
@@ -3097,7 +3098,7 @@ function addOptInRow(){
   const tr = document.createElement('tr');
   tr.id = 'oi_row_'+i;
   tr.innerHTML = '<td style="padding:6px 10px;"><input type="text" id="oi_name_'+i+'" value="New event" oninput="recalcOptInImpact()" style="width:100%;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;"></td>'
-    + '<td style="padding:6px 10px;"><input type="number" id="oi_msgs_'+i+'" value="1" min="0" step="0.001" oninput="recalcOptInImpact()" style="width:60px;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;text-align:center;"></td>'
+    + '<td style="padding:6px 10px;"><input type="number" id="oi_msgs_'+i+'" value="1" min="0" step="1" oninput="recalcOptInImpact()" style="width:60px;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;text-align:center;"></td>'
     + '<td style="padding:6px 10px;"><input type="number" id="oi_pct_'+i+'" value="0" min="0" max="100" step="0.01" oninput="recalcOptInImpact()" style="width:80px;border:1px solid var(--border-mid);border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit;text-align:center;">%</td>'
     + '<td style="padding:6px 10px;font-size:12px;text-align:right;color:var(--muted);" id="oi_contrib_'+i+'">—</td>'
     + '<td style="padding:6px 4px;text-align:center;"><button onclick="removeOptInRow('+i+')" title="Remove this row" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:14px;line-height:1;padding:2px 6px;">&times;</button></td>';
@@ -3215,7 +3216,7 @@ function recalcOptInImpact(){
       rowsToSave.push({name: nameEl.value, msgs: parseFloat(msgsEl.value)||0, pct: parseFloat(pctEl.value)||0});
     }
     localStorage.setItem('riaMessagingHub_optInImpact', JSON.stringify({
-      version: 3,
+      version: 4,
       rows: rowsToSave,
       country: country,
       orders: orders,
