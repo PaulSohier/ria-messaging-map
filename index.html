@@ -2908,7 +2908,7 @@ function sheetRowToTemplate(row, audience) {
 /* ── FULL OPT-IN COST IMPACT (Nick's model) ── */
 function renderOptInImpact(){
   const OI_SAVE_KEY = 'riaMessagingHub_optInImpact';
-  const OI_DATA_VERSION = 5; // bump this whenever the default event data changes, to force a one-time reset of saved values
+  const OI_DATA_VERSION = 6; // bump this whenever the default event data changes, to force a one-time reset of saved values
   function loadOptInSaved(){
     try{
       const raw = localStorage.getItem(OI_SAVE_KEY);
@@ -2925,7 +2925,8 @@ function renderOptInImpact(){
 
   // Real US events, full-year 2025 (same period as the SMS Cost Calculator).
   // "msgs" = the real, dominant SMS billing segment count for that event
-  // (160 chars = 1 segment, computed per real message then taking the most
+  // (160 chars = 1 segment, computed per real US message variant — matching
+  // the US scope of everything else here — then taking the most
   // common value across every live SMS variant found for that event — never
   // a fractional "1.7 messages", since no single message is ever sent that
   // way). Events with no live SMS content in the Library yet (Customer
@@ -2934,7 +2935,7 @@ function renderOptInImpact(){
   // (a system introduced sometime in 2026), so they're excluded here.
   // All editable via the "Adjust assumptions" panel below the main view.
   const DEFAULT_ROWS = [
-    {name:'Transaction Ready for Pickup', msgs:1, pct:35.6486},
+    {name:'Transaction Ready for Pickup', msgs:2, pct:35.6486},
     {name:'Transaction Paid', msgs:2, pct:34.9982},
     {name:'Transaction Pick Up Reminder (3 Days)', msgs:3, pct:0.6675},
     {name:'Transaction Canceled', msgs:2, pct:0.242},
@@ -3212,7 +3213,7 @@ function recalcOptInImpact(){
       rowsToSave.push({name: nameEl.value, msgs: parseFloat(msgsEl.value)||0, pct: parseFloat(pctEl.value)||0});
     }
     localStorage.setItem('riaMessagingHub_optInImpact', JSON.stringify({
-      version: 5,
+      version: 6,
       rows: rowsToSave,
       country: country,
       orders: orders,
