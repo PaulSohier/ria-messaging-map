@@ -485,6 +485,7 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 <div class="page" id="p8"><div class="page-title">Opt-in rates <span class="page-note" id="p8-page-note">Daily-captured from the Opt-in PowerBI dashboard — global or single country</span></div><div id="p8-content"></div></div>
 <div class="page" id="p9"><div class="page-title">Full opt-in cost impact <span class="page-note">2025 actual SMS cost vs. expected cost if every customer opted in</span></div><div id="p9-content"></div></div>
 <div class="page" id="p10"><div class="page-title">Opt-in cost impact (by journey) <span class="page-note">Same question, modeled by delivery-path journey instead of flat events</span></div><div id="p10-content"></div></div>
+<div class="page" id="p11"><div class="page-title">Iterable migration simulator <span class="page-note">What B&amp;M SMS would cost on Iterable vs. staying on FX Client</span></div><div id="p11-content"></div></div>
 
 </div><!-- /main-content -->
 </div><!-- /app-shell -->
@@ -725,6 +726,7 @@ const TOOLS_NAV = [
     {id:'p6', icon:'', label:'Global deployment Twilio'},
     {id:'p9', icon:'', label:'Full opt-in cost impact'},
     {id:'p10', icon:'', label:'Opt-in cost impact (by journey)'},
+    {id:'p11', icon:'', label:'Iterable migration simulator'},
   ]},
   {section:'Methodology', items:[
     {id:'p7', icon:'', label:'How we calculate this'},
@@ -896,6 +898,7 @@ function renderPage(id){
   if(id==='p8') renderOptin();
   if(id==='p9') renderOptInImpact();
   if(id==='p10') renderOptInImpactByJourney();
+  if(id==='p11') renderIterableMigration();
 }
 
 /* ── GLOBAL DEPLOYMENT COST ── */
@@ -3487,6 +3490,266 @@ function recalcOptInByJourney(){
       optinRate: currentOptin, segments: segments, actualCost: actualCost,
     }));
   } catch(e){ /* storage unavailable, non-critical */ }
+}
+
+/* ── ITERABLE MIGRATION COST SIMULATOR (CGD-6450) ── */
+function renderIterableMigration(){
+  const SAVE_KEY = 'riaMessagingHub_iterableMigration';
+  const DATA_VERSION = 1;
+  let saved = null;
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    const p = raw ? JSON.parse(raw) : null;
+    saved = (p && p.version === DATA_VERSION) ? p : null;
+  } catch(e){ saved = null; }
+
+  const CLICKATELL = {"Albania":0.071433,"Angola":0.101467,"Antigua & Barbuda":0.113567,"Argentina":0.065980,"Armenia":0.120325,"Australia":0.014640,"Austria":0.018700,"Bahamas":0.048000,"Bahrain":0.019700,"Barbados":0.173750,"Belgium":0.058060,"Belize":0.162000,"Benin":0.204067,"Bolivia":0.111533,"Bosnia Herzegovina":0.158933,"Botswana":0.026267,"Brazil":0.010329,"British Virgin Islands":0.115967,"Brunei":0.037533,"Bulgaria":0.095167,"Burkina Faso":0.098633,"Cambodia":0.146933,"Cameroon":0.115750,"Canada":0.020145,"Cape Verde":0.099350,"Cayman Islands":0.171650,"Chad":0.145950,"Chile":0.009814,"Comoros":0.070700,"Congo Brazaville":0.152350,"Congo DRC":0.137525,"Cook Islands":0.066700,"Croatia":0.071033,"Cyprus":0.009500,"Czech Republic":0.037460,"Denmark":0.037618,"Dominican Republic":0.050433,"Ecuador":0.199467,"El Salvador":0.075060,"Estonia":0.027860,"Fiji":0.107433,"Finland":0.050600,"France":0.042447,"Gabon":0.144125,"Gambia":0.065900,"Georgia":0.096220,"Germany":0.064657,"Ghana":0.158140,"Gibraltar":0.042000,"Greece":0.034800,"Guam":0.033600,"Guatemala":0.091050,"Guinea":0.137820,"Guinea Bissau":0.209200,"Guyana":0.135350,"Honduras":0.102700,"Hong Kong":0.040522,"Hungary":0.036650,"Iceland":0.052100,"India":0.041960,"Indonesia":0.230033,"Ireland":0.046940,"Israel":0.154582,"Italy":0.032021,"Ivory Coast":0.224400,"Jamaica":0.137100,"Japan":0.032540,"Jordan":0.166967,"Kazakhstan":0.205167,"Kenya":0.130580,"Korea South":0.007800,"Kosovo":0.175600,"Kuwait":0.189325,"Kyrgyzstan":0.146750,"Laos":0.103120,"Latvia":0.029860,"Lebanon":0.274700,"Liberia":0.136933,"Lithuania":0.034000,"Luxembourg":0.055333,"Macau":0.015175,"Madagascar":0.292867,"Malawi":0.152300,"Malaysia":0.124267,"Maldives":0.234700,"Malta":0.042000,"Mauritius":0.094900,"Moldova":0.077480,"Mongolia":0.187680,"Montenegro":0.110400,"Morocco":0.121500,"Mozambique":0.215033,"Netherlands":0.070083,"New Zealand":0.049300,"Nicaragua":0.090500,"Niger":0.123325,"North Macedonia":0.075775,"Norway":0.041400,"Oman":0.079200,"Panama":0.102450,"Papua New Guinea":0.146975,"Paraguay":0.046075,"Peru":0.119100,"Philippines":0.147833,"Poland":0.015622,"Portugal":0.011433,"Qatar":0.164650,"Romania":0.031900,"Rwanda":0.196850,"Saudi Arabia":0.127800,"Senegal":0.155333,"Serbia":0.196033,"Seychelles":0.206650,"Sierra Leone":0.172250,"Singapore":0.032320,"Slovakia":0.033250,"Slovenia":0.107700,"Solomon Islands":0.068150,"South Africa":0.009080,"South Sudan":0.102680,"Spain":0.024912,"Sri Lanka":0.256925,"Suriname":0.178300,"Sweden":0.040539,"Switzerland":0.031488,"Tanzania":0.191350,"Thailand":0.004633,"Togo":0.265850,"Trinidad & Tobago":0.165200,"Turkey":0.002800,"Turks & Caicos":0.190000,"Uganda":0.111580,"Ukraine":0.119167,"United Arab Emirates":0.080700,"United Kingdom":0.035959,"United States":0.005500,"Vanuatu":0.112450,"Zambia":0.183400,"Zimbabwe":0.078700};
+  const TWILIO = {"Algeria":0.2163,"Argentina":0.0748,"Australia":0.01803,"Austria":0.06657,"Belgium":0.088,"Botswana":0.06786,"Canada":0.00356,"Cayman Islands":0.2476,"Chile":0.03274,"Colombia":0.01365,"Croatia":0.07453,"Denmark":0.0524,"El Salvador":0.12886,"Equatorial Guinea":0.15907,"Finland":0.07921,"France":0.04708,"Germany":0.07708,"Greece":0.05704,"Guadeloupe":0.12689,"Guatemala":0.16986,"Haiti":0.21675,"Honduras":0.20664,"India":0.07821,"Ireland":0.06174,"Israel":0.20285,"Italy":0.05562,"Laos":0.2389,"Lithuania":0.05014,"Luxembourg":0.0818,"Malaysia":0.21257,"Martinique":0.10648,"Mexico":0.14589,"Morocco":0.20645,"Netherlands":0.08887,"New Zealand":0.084,"Nicaragua":0.10635,"Niger":0.2971,"Norway":0.05989,"Palestine":0.35595,"Panama":0.14549,"Paraguay":0.11114,"Peru":0.20798,"Philippines":0.2001,"Poland":0.02931,"Portugal":0.03216,"Puerto Rico":0.02856,"Reunion":0.12995,"Senegal":0.2594,"Singapore":0.04002,"Spain":0.05161,"Sweden":0.04141,"Switzerland":0.03553,"Togo":0.23698,"Tunisia":0.3428,"United Arab Emirates":0.10046,"United Kingdom":0.03797,"United States":0.00474};
+  const ORDERS = {"Albania":87389,"Angola":48,"Antigua & Barbuda":11888,"Argentina":59436,"Armenia":38810,"Australia":2210390,"Austria":581002,"Bahamas":11,"Bahrain":281,"Barbados":5,"Belgium":2779711,"Belize":1,"Benin":47656,"Bolivia":4935,"Bosnia Herzegovina":2882,"Botswana":550,"Brazil":883,"British Virgin Islands":1,"Brunei":4963,"Bulgaria":259749,"Burkina Faso":21803,"Cambodia":683,"Cameroon":295770,"Canada":4843159,"Cape Verde":151,"Cayman Islands":1,"Chad":55383,"Chile":2893904,"Comoros":121930,"Congo Brazaville":131858,"Congo DRC":56287,"Cook Islands":1,"Croatia":4,"Cyprus":88201,"Czech Republic":159771,"Denmark":493048,"Dominican Republic":99,"Ecuador":13210,"El Salvador":3617,"Estonia":10525,"Fiji":404,"Finland":86847,"France":15495103,"Gabon":40045,"Gambia":1656,"Georgia":154382,"Germany":6274832,"Ghana":12,"Gibraltar":2,"Greece":440435,"Guam":4,"Guatemala":14859,"Guinea":13587,"Guinea Bissau":38366,"Guyana":229,"Honduras":128,"Hong Kong":6682,"Hungary":3744,"Iceland":17,"India":15,"Indonesia":573,"Ireland":252109,"Israel":370058,"Italy":10219696,"Ivory Coast":226333,"Jamaica":3,"Japan":250219,"Jordan":48782,"Kazakhstan":16937,"Kenya":1061,"Korea South":40664,"Kosovo":74821,"Kuwait":7421,"Kyrgyzstan":2016,"Laos":53,"Latvia":27773,"Lebanon":150,"Liberia":232,"Lithuania":8059,"Luxembourg":176191,"Macau":4,"Madagascar":8080,"Malawi":45,"Malaysia":4051990,"Maldives":30848,"Malta":98,"Mauritius":25262,"Moldova":40296,"Mongolia":788,"Montenegro":15283,"Morocco":30419,"Mozambique":38,"Netherlands":1099610,"New Zealand":508403,"Nicaragua":3,"Niger":4771,"North Macedonia":34638,"Norway":490052,"Oman":2655,"Panama":61,"Papua New Guinea":1,"Paraguay":479,"Peru":139,"Philippines":5761,"Poland":70433,"Portugal":1138144,"Qatar":67855,"Romania":28769,"Rwanda":32,"Saudi Arabia":9303,"Senegal":175581,"Serbia":66873,"Seychelles":6237,"Sierra Leone":24,"Singapore":95358,"Slovakia":156,"Slovenia":19,"Solomon Islands":7824,"South Africa":607391,"South Sudan":46,"Spain":17938861,"Sri Lanka":4,"Suriname":839,"Sweden":540774,"Switzerland":1547206,"Tanzania":3968,"Thailand":1130,"Togo":36264,"Trinidad & Tobago":1,"Turkey":107900,"Turks & Caicos":16114,"Uganda":484,"Ukraine":1,"United Arab Emirates":61984,"United Kingdom":5012286,"United States":69927961,"Vanuatu":29,"Zambia":470,"Zimbabwe":641};
+
+  // Real 2025 US event data: participation rate and real SMS billing segments.
+  // US is the only market with behavioural telemetry, so these rates are
+  // applied as a proxy to other markets — the same methodology used across
+  // the rest of this Hub. Flagged in the UI wherever that applies.
+  const US_EVENTS = [
+    {n:'Transaction Ready for Pickup', p:35.6486, s:2},{n:'Transaction Paid', p:34.9982, s:2},
+    {n:'Transaction Pick Up Reminder (3 Days)', p:0.6675, s:3},{n:'Transaction Canceled', p:0.242, s:2},
+    {n:'Strategic Retail Partners - Refund Completed', p:0.2409, s:1},{n:'Strategic Retail Partners - Available for Refund', p:0.2406, s:2},
+    {n:'Transaction Needs Information', p:0.1788, s:2},{n:'Transaction Pick Up Reminder (7 Days)', p:0.1394, s:2},
+    {n:'Transaction Resent', p:0.0627, s:2},{n:'Customer Opt-In', p:0.0571, s:1},
+    {n:'Transaction Pick Up Reminder (14 Days)', p:0.0484, s:2},{n:'Agent activated due to paid credit', p:0.0344, s:2},
+    {n:'Transaction Rejected', p:0.0302, s:2},{n:'Requires interview', p:0.0238, s:2},
+    {n:'Refund Reminder (3 Day)', p:0.0435, s:2},{n:'Refund Reminder (7 Day)', p:0.0273, s:2},
+    {n:'Refund Reminder (14 Day)', p:0.021, s:2},{n:'Agent suspended due to past-due balance', p:0.0164, s:2},
+    {n:'Transaction Ready for Refund', p:0.0137, s:2},{n:'Agent suspended 7 days reminder', p:0.0042, s:2},
+    {n:'Agent suspended 15 days reminder', p:0.0039, s:3},{n:'Transaction Cancelled (Time Limit Expired)', p:0.0028, s:2},
+    {n:'Refund Reminder (1 Day)', p:0.0007, s:2},{n:'Refund Reminder (2 Day)', p:0.0006, s:2},
+    {n:'Refund Reminder (20 Day)', p:0.0003, s:2},{n:'Transaction Pick Up Reminder (1 Day)', p:0.0001, s:1},
+    {n:'Transaction Pick Up Reminder (2 Days)', p:0.0001, s:3},{n:'Transaction Sent To Be Paid', p:0.0, s:2},
+    {n:'Transaction Cancelled (Test Transaction)', p:0.0, s:1},
+  ];
+
+  // Iterable contract Q-15068 (Mar 2026 - Mar 2027), real figures.
+  const ITER = {
+    profileAllowance: 52000000, profileCPM: 0.50,     // per 1,000 profiles/month
+    eventAllowance: 260000000,  eventCPM: 0.01,       // per 1,000 events/month
+    connectorMonthly: 1090,                            // 3rd Party SMS+MMS Fee - USA
+  };
+
+  const countries = Object.keys(ORDERS).sort();
+  const countryOpts = '<option value="__all__">All countries</option>'
+    + countries.map(function(c){ return '<option value="'+c+'">'+c+'</option>'; }).join('');
+
+  const html = '<div class="calc-wrap">'
+    + '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px;">'
+    + '<div style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">Stay on FX Client</div>'
+    + '<div id="im-fx" style="font-size:26px;font-weight:700;color:var(--text);">—</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Carrier cost only, no platform fee</div></div>'
+    + '<div style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--purple);border-radius:var(--radius);padding:16px 18px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">Move to Iterable</div>'
+    + '<div id="im-iter" style="font-size:26px;font-weight:700;color:var(--purple);">—</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Carrier + Iterable platform cost</div></div>'
+    + '<div style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--orange);border-radius:var(--radius);padding:16px 18px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">Difference</div>'
+    + '<div id="im-diff" style="font-size:26px;font-weight:700;color:var(--orange);">—</div>'
+    + '<div id="im-diff-note" style="font-size:11px;color:var(--muted);margin-top:4px;">&nbsp;</div></div>'
+    + '<div style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">SMS segments / year</div>'
+    + '<div id="im-segments" style="font-size:26px;font-weight:700;color:var(--text);">—</div>'
+    + '<div id="im-events-note" style="font-size:11px;color:var(--muted);margin-top:4px;">&nbsp;</div></div>'
+    + '</div>'
+
+    + '<div id="im-proxy-banner" style="display:none;background:#FFF7ED;border:1px solid var(--orange);border-radius:var(--radius);padding:10px 16px;margin-bottom:18px;font-size:11px;color:#7A3300;line-height:1.6;"></div>'
+
+    + '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;">'
+    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px;">Cost comparison</div>'
+    + '<div id="im-bars" style="display:flex;flex-direction:column;gap:14px;"></div></div>'
+
+    + '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;">'
+    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px;">What makes up the Iterable cost</div>'
+    + '<table style="width:100%;border-collapse:collapse;">'
+    + '<tbody id="im-breakdown"></tbody></table></div>'
+
+    + '<div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;padding:18px 0;border-top:1px solid var(--border);margin-bottom:8px;">'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Market</label>'
+    + '<select id="im-country" onchange="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);cursor:pointer;min-width:190px;">'+countryOpts+'</select></div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Carrier</label>'
+    + '<select id="im-carrier" onchange="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);cursor:pointer;min-width:140px;">'
+    + '<option value="clickatell">Clickatell</option><option value="twilio">Twilio</option></select></div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Opt-in scenario</label>'
+    + '<select id="im-scenario" onchange="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);cursor:pointer;min-width:160px;">'
+    + '<option value="current">Current opt-in rate</option><option value="full">100% opt-in</option></select></div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Current opt-in %</label>'
+    + '<input id="im-optin" type="number" min="0.01" max="100" step="0.01" value="64" oninput="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);width:100px;"></div>'
+    + '</div>'
+
+    + '<details style="border:1px solid var(--border);border-radius:var(--radius);">'
+    + '<summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:12px 18px;">&#9881; Iterable contract inputs</summary>'
+    + '<div style="padding:0 18px 18px;">'
+    + '<div style="background:#F0FBF4;border:1px solid #97C459;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:#27500A;line-height:1.6;">'
+    + 'Allowances and rates below are the real figures from Iterable contract Q-15068 (Mar 2026 &ndash; Mar 2027). '
+    + '<strong>Profiles added</strong> and <strong>current usage</strong> are blank or zero by default, because we don&rsquo;t have those numbers yet &mdash; fill them in to see real overage cost. '
+    + 'Base subscription fees are already paid for Digital today, so only overage and the connector fee count as new cost here.'
+    + '</div>'
+    + '<div style="display:flex;gap:18px;flex-wrap:wrap;">'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">B&amp;M profiles added</label>'
+    + '<input id="im-profiles" type="number" min="0" placeholder="unknown" oninput="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--orange);background:var(--card);font-size:13px;color:var(--text);width:150px;">'
+    + '<div style="font-size:9px;color:var(--hint);">Unique customers, not orders</div></div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Profiles already used</label>'
+    + '<input id="im-profiles-used" type="number" min="0" value="0" oninput="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);width:150px;">'
+    + '<div style="font-size:9px;color:var(--hint);">By Digital today</div></div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Events already used / month</label>'
+    + '<input id="im-events-used" type="number" min="0" value="0" oninput="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);width:170px;">'
+    + '<div style="font-size:9px;color:var(--hint);">By Digital today</div></div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Profile allowance</label>'
+    + '<input id="im-profile-allow" type="number" min="0" value="52000000" oninput="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);width:150px;"></div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Event allowance / month</label>'
+    + '<input id="im-event-allow" type="number" min="0" value="260000000" oninput="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);width:170px;"></div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Connector fee / month</label>'
+    + '<input id="im-connector" type="number" min="0" step="0.01" value="1090" oninput="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);width:150px;">'
+    + '<div style="font-size:9px;color:var(--hint);">USA rate per contract</div></div>'
+    + '</div></div></details>'
+    + '</div>';
+
+  document.getElementById('p11-content').innerHTML = html;
+  window._imData = {CLICKATELL:CLICKATELL, TWILIO:TWILIO, ORDERS:ORDERS, US_EVENTS:US_EVENTS, ITER:ITER};
+
+  if(saved){
+    if(saved.country) document.getElementById('im-country').value = saved.country;
+    if(saved.carrier) document.getElementById('im-carrier').value = saved.carrier;
+    if(saved.scenario) document.getElementById('im-scenario').value = saved.scenario;
+    if(saved.optin !== undefined) document.getElementById('im-optin').value = saved.optin;
+    if(saved.profiles !== undefined && saved.profiles !== null) document.getElementById('im-profiles').value = saved.profiles;
+    if(saved.profilesUsed !== undefined) document.getElementById('im-profiles-used').value = saved.profilesUsed;
+    if(saved.eventsUsed !== undefined) document.getElementById('im-events-used').value = saved.eventsUsed;
+  } else {
+    document.getElementById('im-country').value = 'United States';
+  }
+  recalcIterableMigration();
+}
+
+function recalcIterableMigration(){
+  const D = window._imData; if(!D) return;
+  const country  = document.getElementById('im-country').value;
+  const carrier  = document.getElementById('im-carrier').value;
+  const scenario = document.getElementById('im-scenario').value;
+  const optin    = parseFloat(document.getElementById('im-optin').value) || 100;
+  const rates    = carrier === 'twilio' ? D.TWILIO : D.CLICKATELL;
+
+  const scale = scenario === 'full' ? (1/(optin/100)) : 1;
+
+  // Per country: segments = sum(participation% x orders x real segment count)
+  // events = sum(participation% x orders) — one custom event per trigger
+  const targets = country === '__all__' ? Object.keys(D.ORDERS) : [country];
+  let segments = 0, events = 0, carrierCost = 0, missingRate = [];
+  targets.forEach(function(c){
+    const orders = D.ORDERS[c] || 0;
+    const rate = rates[c];
+    if(rate === undefined){ if(orders > 0) missingRate.push(c); return; }
+    let segsC = 0, evC = 0;
+    D.US_EVENTS.forEach(function(e){
+      const fires = (e.p/100) * orders * scale;
+      evC   += fires;
+      segsC += fires * e.s;
+    });
+    segments += segsC; events += evC;
+    carrierCost += segsC * rate;
+  });
+
+  // Iterable incremental cost
+  const profilesRaw = document.getElementById('im-profiles').value.trim();
+  const profiles      = profilesRaw === '' ? null : (parseFloat(profilesRaw) || 0);
+  const profilesUsed  = parseFloat(document.getElementById('im-profiles-used').value) || 0;
+  const eventsUsed    = parseFloat(document.getElementById('im-events-used').value) || 0;
+  const profileAllow  = parseFloat(document.getElementById('im-profile-allow').value) || 0;
+  const eventAllow    = parseFloat(document.getElementById('im-event-allow').value) || 0;
+  const connectorMo   = parseFloat(document.getElementById('im-connector').value) || 0;
+
+  const monthlyEvents = events / 12;
+  const eventOverUnits = Math.max(0, (monthlyEvents + eventsUsed) - eventAllow);
+  const eventOverCost  = (eventOverUnits/1000) * D.ITER.eventCPM * 12;
+
+  const profileOverUnits = profiles === null ? null : Math.max(0, (profiles + profilesUsed) - profileAllow);
+  const profileOverCost  = profileOverUnits === null ? 0 : (profileOverUnits/1000) * D.ITER.profileCPM * 12;
+
+  const connectorYear = connectorMo * 12;
+  const iterablePlatform = connectorYear + eventOverCost + profileOverCost;
+  const fxTotal   = carrierCost;
+  const iterTotal = carrierCost + iterablePlatform;
+  const diff = iterTotal - fxTotal;
+
+  function money(n){ return '$'+n.toLocaleString('en-US',{maximumFractionDigits:0}); }
+  function num(n){ return n.toLocaleString('en-US',{maximumFractionDigits:0}); }
+
+  document.getElementById('im-fx').textContent = money(fxTotal);
+  document.getElementById('im-iter').textContent = money(iterTotal);
+  document.getElementById('im-diff').textContent = (diff>=0?'+':'')+money(diff);
+  document.getElementById('im-diff-note').textContent = diff>=0 ? 'More expensive on Iterable' : 'Cheaper on Iterable';
+  document.getElementById('im-segments').textContent = num(segments);
+  document.getElementById('im-events-note').textContent = num(events)+' events · '+num(monthlyEvents)+'/month';
+
+  // Honesty banner: proxy data + any market missing a carrier rate
+  const banner = document.getElementById('im-proxy-banner');
+  const notes = [];
+  if(country !== 'United States'){
+    notes.push('<strong>Estimate, not measured.</strong> Event participation rates come from real 2025 US data and are applied as a proxy to other markets, since the US is the only market with behavioural telemetry. Segment counts also use US message lengths.');
+  }
+  if(missingRate.length){
+    notes.push('<strong>'+missingRate.length+' market'+(missingRate.length>1?'s':'')+' excluded</strong> — no '+(carrier==='twilio'?'Twilio':'Clickatell')+' rate on file: '+missingRate.slice(0,12).join(', ')+(missingRate.length>12?', and '+(missingRate.length-12)+' more':'')+'.');
+  }
+  if(profiles === null){
+    notes.push('<strong>Profile cost not included.</strong> Enter the number of B&amp;M profiles under contract inputs to include any profile overage.');
+  }
+  if(notes.length){ banner.style.display='block'; banner.innerHTML = notes.join('<br>'); }
+  else { banner.style.display='none'; }
+
+  // Bars
+  const maxV = Math.max(fxTotal, iterTotal, 1);
+  function bar(label, val, color){
+    const w = Math.max(2,(val/maxV)*100);
+    return '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">'
+      + '<span style="font-weight:600;color:var(--text);">'+label+'</span>'
+      + '<span style="font-weight:700;color:'+color+';">'+money(val)+'</span></div>'
+      + '<div style="background:var(--bg);border-radius:6px;height:22px;overflow:hidden;">'
+      + '<div style="background:'+color+';height:100%;width:'+w+'%;border-radius:6px;transition:width .3s;"></div></div></div>';
+  }
+  document.getElementById('im-bars').innerHTML =
+      bar('Stay on FX Client ('+(carrier==='twilio'?'Twilio':'Clickatell')+')', fxTotal, 'var(--text)')
+    + bar('Move to Iterable ('+(carrier==='twilio'?'Twilio':'Clickatell')+')', iterTotal, 'var(--purple)');
+
+  // Breakdown table
+  const rowsHtml = [
+    ['Carrier cost — '+(carrier==='twilio'?'Twilio':'Clickatell'), money(carrierCost), 'Paid either way, on FX Client or Iterable'],
+    ['Iterable connector fee', money(connectorYear), '$'+connectorMo.toLocaleString('en-US')+'/month — contract line "3rd Party SMS+MMS Fee - USA"'],
+    ['Custom event overage', money(eventOverCost), eventOverUnits>0 ? num(eventOverUnits)+' events/month above allowance' : 'Within the '+num(eventAllow)+'/month allowance — no overage'],
+    ['Profile overage', profiles===null ? 'not set' : money(profileOverCost), profiles===null ? 'Enter profiles added to calculate' : (profileOverUnits>0 ? num(profileOverUnits)+' profiles above allowance' : 'Within the '+num(profileAllow)+' allowance — no overage')],
+    ['<strong>Iterable platform cost</strong>', '<strong>'+money(iterablePlatform)+'</strong>', 'New cost on top of the carrier cost'],
+  ].map(function(r,i){
+    const last = i===4;
+    return '<tr style="'+(last?'border-top:2px solid var(--border);':'')+'">'
+      + '<td style="padding:8px 10px;font-size:12px;color:var(--text);">'+r[0]+'</td>'
+      + '<td style="padding:8px 10px;font-size:12px;text-align:right;color:'+(last?'var(--purple)':'var(--text)')+';white-space:nowrap;">'+r[1]+'</td>'
+      + '<td style="padding:8px 10px;font-size:11px;color:var(--muted);">'+r[2]+'</td></tr>';
+  }).join('');
+  document.getElementById('im-breakdown').innerHTML = rowsHtml;
+
+  try{
+    localStorage.setItem('riaMessagingHub_iterableMigration', JSON.stringify({
+      version:1, country:country, carrier:carrier, scenario:scenario, optin:optin,
+      profiles: profiles, profilesUsed: profilesUsed, eventsUsed: eventsUsed,
+    }));
+  } catch(e){}
 }
 
 async function loadSheetData() {
