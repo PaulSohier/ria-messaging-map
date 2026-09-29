@@ -3495,7 +3495,7 @@ function recalcOptInByJourney(){
 /* ── ITERABLE MIGRATION COST SIMULATOR (CGD-6450) ── */
 function renderIterableMigration(){
   const SAVE_KEY = 'riaMessagingHub_iterableMigration';
-  const DATA_VERSION = 1;
+  const DATA_VERSION = 2;
   let saved = null;
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -3529,6 +3529,11 @@ function renderIterableMigration(){
     {n:'Transaction Cancelled (Test Transaction)', p:0.0, s:1},
   ];
 
+  // Which SMS events are actually LIVE in each market today, from the
+  // Messages Library. Values are indexes into US_EVENTS. This is real data:
+  // the US runs 25 events, while most other markets run only 1 to 4.
+  const LIVE_EVENTS = {"Australia":[0,1,18,21],"Austria":[0,18],"Belgium":[0,6,18],"Canada":[0,1,6,13],"Colombia":[0],"Czech Republic":[18],"Denmark":[0,18],"Estonia":[18],"Finland":[0,18],"France":[0,1,18],"French Guiana":[18],"Germany":[0,1,18],"Greece":[18],"Guadeloupe":[18],"Hungary":[18],"Ireland":[18],"Italy":[0,18],"Latvia":[18],"Lebanon":[0],"Luxembourg":[0,18],"Malaysia":[3,18],"Martinique":[18],"Mayotte":[18],"Netherlands":[0,18],"New Zealand":[1,21],"Norway":[0,18],"Oman":[0],"Poland":[0,18],"Portugal":[18],"Reunion":[18],"Romania":[0,18],"Singapore":[7,18,21],"Slovakia":[18],"South Africa":[0],"Spain":[0,18],"Sweden":[0,18],"Switzerland":[0,18],"United Arab Emirates":[0,1],"United Kingdom":[0,18],"United States":[0,1,2,3,4,5,6,7,8,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,26]};
+
   // Iterable contract Q-15068 (Mar 2026 - Mar 2027), real figures.
   const ITER = {
     profileAllowance: 52000000, profileCPM: 0.50,     // per 1,000 profiles/month
@@ -3537,63 +3542,110 @@ function renderIterableMigration(){
   };
 
   const countries = Object.keys(ORDERS).sort();
-  const countryOpts = '<option value="__all__">All countries</option>'
-    + countries.map(function(c){ return '<option value="'+c+'">'+c+'</option>'; }).join('');
+  const savedScope = (saved && Array.isArray(saved.scope)) ? saved.scope : ['United States'];
+
+  const checkboxes = countries.map(function(c){
+    const on = savedScope.indexOf(c) !== -1;
+    return '<label style="display:flex;align-items:center;gap:6px;font-size:11px;padding:3px 6px;cursor:pointer;white-space:nowrap;">'
+      + '<input type="checkbox" class="im-cc" value="'+esc(c)+'"'+(on?' checked':'')+' onchange="recalcIterableMigration()" style="cursor:pointer;">'
+      + esc(c)+'</label>';
+  }).join('');
 
   const html = '<div class="calc-wrap">'
-    + '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px;">'
-    + '<div style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;">'
-    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">Stay on FX Client</div>'
-    + '<div id="im-fx" style="font-size:26px;font-weight:700;color:var(--text);">—</div>'
-    + '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Carrier cost only, no platform fee</div></div>'
-    + '<div style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--purple);border-radius:var(--radius);padding:16px 18px;">'
-    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">Move to Iterable</div>'
-    + '<div id="im-iter" style="font-size:26px;font-weight:700;color:var(--purple);">—</div>'
-    + '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Carrier + Iterable platform cost</div></div>'
-    + '<div style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--orange);border-radius:var(--radius);padding:16px 18px;">'
-    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">Difference</div>'
-    + '<div id="im-diff" style="font-size:26px;font-weight:700;color:var(--orange);">—</div>'
-    + '<div id="im-diff-note" style="font-size:11px;color:var(--muted);margin-top:4px;">&nbsp;</div></div>'
-    + '<div style="flex:1;min-width:180px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;">'
-    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;">SMS segments / year</div>'
-    + '<div id="im-segments" style="font-size:26px;font-weight:700;color:var(--text);">—</div>'
-    + '<div id="im-events-note" style="font-size:11px;color:var(--muted);margin-top:4px;">&nbsp;</div></div>'
+
+    // ── Plain-language explainer ──
+    + '<div style="background:var(--purple-bg);border:1px solid var(--purple);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;font-size:13px;color:var(--text);line-height:1.75;">'
+    + '<div style="font-weight:700;margin-bottom:6px;">What this page answers</div>'
+    + 'Today we send B&amp;M SMS through <strong>FX Client</strong>, our own internal system. The only cost is what the carrier charges per message.<br>'
+    + 'If we moved that sending to <strong>Iterable</strong>, we would still pay a carrier the same way &mdash; but Iterable also charges platform fees on top.<br>'
+    + '<strong>This page shows what that difference would be.</strong>'
     + '</div>'
+
+    // ── Headline sentence ──
+    + '<div id="im-headline" style="font-size:19px;font-weight:700;color:var(--text);line-height:1.5;margin-bottom:18px;">&nbsp;</div>'
+
+    // ── Two cost types, split ──
+    + '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;">'
+    + '<div style="flex:1;min-width:250px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px;">1 &middot; SMS sending cost</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Paid to the carrier. Same either way &mdash; this does not change if we move.</div>'
+    + '<div id="im-carrier-cost" style="font-size:26px;font-weight:700;color:var(--text);">&mdash;</div>'
+    + '<div id="im-carrier-note" style="font-size:11px;color:var(--muted);margin-top:4px;">&nbsp;</div></div>'
+    + '<div style="flex:1;min-width:250px;background:var(--card);border:1px solid var(--orange);border-radius:var(--radius);padding:18px 20px;">'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--orange);margin-bottom:4px;">2 &middot; Iterable platform cost</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Paid <strong>once</strong> for the whole migration, not per country.</div>'
+    + '<div id="im-platform-cost" style="font-size:26px;font-weight:700;color:var(--orange);">&mdash;</div>'
+    + '<div id="im-platform-note" style="font-size:11px;color:var(--muted);margin-top:4px;">&nbsp;</div></div>'
+    + '</div>'
+
+    + '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;">'
+    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px;">Total cost per year</div>'
+    + '<div id="im-bars" style="display:flex;flex-direction:column;gap:14px;"></div></div>'
 
     + '<div id="im-proxy-banner" style="display:none;background:#FFF7ED;border:1px solid var(--orange);border-radius:var(--radius);padding:10px 16px;margin-bottom:18px;font-size:11px;color:#7A3300;line-height:1.6;"></div>'
 
-    + '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;">'
-    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px;">Cost comparison</div>'
-    + '<div id="im-bars" style="display:flex;flex-direction:column;gap:14px;"></div></div>'
+    // ── Scope picker ──
+    + '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:18px;">'
+    + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px;">'
+    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Which markets are we migrating?</div>'
+    + '<button onclick="imScopePreset(\'us\')" class="intent-pill" style="border:none;">US only</button>'
+    + '<button onclick="imScopePreset(\'all\')" class="intent-pill" style="border:none;">All countries</button>'
+    + '<button onclick="imScopePreset(\'none\')" class="intent-pill" style="border:none;">Clear</button>'
+    + '<span id="im-scope-count" style="font-size:11px;color:var(--muted);"></span>'
+    + '</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:2px;max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;">'
+    + checkboxes + '</div></div>'
 
-    + '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 24px;margin-bottom:20px;">'
-    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px;">What makes up the Iterable cost</div>'
-    + '<table style="width:100%;border-collapse:collapse;">'
-    + '<tbody id="im-breakdown"></tbody></table></div>'
+    // ── Event scope picker ──
+    + '<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:18px;">'
+    + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px;">Which messages are we sending?</div>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">'
+    + '<label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;padding:7px 12px;border:1px solid var(--border-mid);border-radius:8px;">'
+    + '<input type="radio" name="im-evmode" value="live" checked onchange="imToggleEventMode()" style="cursor:pointer;">'
+    + '<span><strong>What&rsquo;s live today</strong> <span style="color:var(--muted);">&mdash; only the events each market already sends</span></span></label>'
+    + '<label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;padding:7px 12px;border:1px solid var(--border-mid);border-radius:8px;">'
+    + '<input type="radio" name="im-evmode" value="custom" onchange="imToggleEventMode()" style="cursor:pointer;">'
+    + '<span><strong>Pick events</strong> <span style="color:var(--muted);">&mdash; model activating more</span></span></label>'
+    + '</div>'
+    + '<div id="im-event-picker" style="display:none;">'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center;">'
+    + '<button onclick="imEventPreset(\'all\')" class="intent-pill" style="border:none;">All events</button>'
+    + '<button onclick="imEventPreset(\'us\')" class="intent-pill" style="border:none;">Match US coverage</button>'
+    + '<button onclick="imEventPreset(\'none\')" class="intent-pill" style="border:none;">Clear</button>'
+    + '<span id="im-event-count" style="font-size:11px;color:var(--muted);"></span></div>'
+    + '<div style="display:flex;flex-direction:column;gap:1px;max-height:190px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;">'
+    + US_EVENTS.map(function(e,i){
+        return '<label style="display:flex;align-items:center;gap:7px;font-size:11px;padding:3px 5px;cursor:pointer;">'
+          + '<input type="checkbox" class="im-ev" value="'+i+'" checked onchange="recalcIterableMigration()" style="cursor:pointer;">'
+          + '<span style="flex:1;">'+esc(e.n)+'</span>'
+          + '<span style="color:var(--hint);font-size:10px;white-space:nowrap;">'+e.p.toFixed(3)+'% of orders &middot; '+e.s+' seg</span></label>';
+      }).join('')
+    + '</div></div>'
+    + '<div id="im-live-note" style="font-size:11px;color:var(--muted);margin-top:4px;"></div>'
+    + '</div>'
 
-    + '<div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;padding:18px 0;border-top:1px solid var(--border);margin-bottom:8px;">'
-    + '<div style="display:flex;flex-direction:column;gap:6px;">'
-    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Market</label>'
-    + '<select id="im-country" onchange="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);cursor:pointer;min-width:190px;">'+countryOpts+'</select></div>'
+    // ── Scenario controls ──
+    + '<div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;padding-bottom:18px;margin-bottom:8px;">'
     + '<div style="display:flex;flex-direction:column;gap:6px;">'
     + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Carrier</label>'
     + '<select id="im-carrier" onchange="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);cursor:pointer;min-width:140px;">'
     + '<option value="clickatell">Clickatell</option><option value="twilio">Twilio</option></select></div>'
     + '<div style="display:flex;flex-direction:column;gap:6px;">'
     + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Opt-in scenario</label>'
-    + '<select id="im-scenario" onchange="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);cursor:pointer;min-width:160px;">'
-    + '<option value="current">Current opt-in rate</option><option value="full">100% opt-in</option></select></div>'
+    + '<select id="im-scenario" onchange="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);cursor:pointer;min-width:170px;">'
+    + '<option value="current">Today\'s opt-in rate</option><option value="full">If everyone opted in</option></select></div>'
     + '<div style="display:flex;flex-direction:column;gap:6px;">'
-    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Current opt-in %</label>'
+    + '<label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">Today\'s opt-in %</label>'
     + '<input id="im-optin" type="number" min="0.01" max="100" step="0.01" value="64" oninput="recalcIterableMigration()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border-mid);background:var(--card);font-size:13px;color:var(--text);width:100px;"></div>'
     + '</div>'
 
-    + '<details style="border:1px solid var(--border);border-radius:var(--radius);">'
-    + '<summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:12px 18px;">&#9881; Iterable contract inputs</summary>'
+    + '<details style="border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;">'
+    + '<summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);padding:12px 18px;">&#9881; Iterable contract inputs &amp; cost breakdown</summary>'
     + '<div style="padding:0 18px 18px;">'
+    + '<table style="width:100%;border-collapse:collapse;margin-bottom:18px;"><tbody id="im-breakdown"></tbody></table>'
     + '<div style="background:#F0FBF4;border:1px solid #97C459;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:#27500A;line-height:1.6;">'
     + 'Allowances and rates below are the real figures from Iterable contract Q-15068 (Mar 2026 &ndash; Mar 2027). '
-    + '<strong>Profiles added</strong> and <strong>current usage</strong> are blank or zero by default, because we don&rsquo;t have those numbers yet &mdash; fill them in to see real overage cost. '
+    + '<strong>Profiles added</strong> and <strong>current usage</strong> are blank or zero by default, because we don&rsquo;t have those numbers yet. '
     + 'Base subscription fees are already paid for Digital today, so only overage and the connector fee count as new cost here.'
     + '</div>'
     + '<div style="display:flex;gap:18px;flex-wrap:wrap;">'
@@ -3623,52 +3675,105 @@ function renderIterableMigration(){
     + '</div>';
 
   document.getElementById('p11-content').innerHTML = html;
-  window._imData = {CLICKATELL:CLICKATELL, TWILIO:TWILIO, ORDERS:ORDERS, US_EVENTS:US_EVENTS, ITER:ITER};
+  window._imData = {CLICKATELL:CLICKATELL, TWILIO:TWILIO, ORDERS:ORDERS, US_EVENTS:US_EVENTS, ITER:ITER, LIVE_EVENTS:LIVE_EVENTS};
 
   if(saved){
-    if(saved.country) document.getElementById('im-country').value = saved.country;
     if(saved.carrier) document.getElementById('im-carrier').value = saved.carrier;
     if(saved.scenario) document.getElementById('im-scenario').value = saved.scenario;
     if(saved.optin !== undefined) document.getElementById('im-optin').value = saved.optin;
     if(saved.profiles !== undefined && saved.profiles !== null) document.getElementById('im-profiles').value = saved.profiles;
     if(saved.profilesUsed !== undefined) document.getElementById('im-profiles-used').value = saved.profilesUsed;
     if(saved.eventsUsed !== undefined) document.getElementById('im-events-used').value = saved.eventsUsed;
-  } else {
-    document.getElementById('im-country').value = 'United States';
+    if(saved.evMode){
+      const el = document.querySelector('input[name="im-evmode"][value="'+saved.evMode+'"]');
+      if(el) el.checked = true;
+      document.getElementById('im-event-picker').style.display = saved.evMode === 'custom' ? 'block' : 'none';
+    }
+    if(Array.isArray(saved.events)){
+      document.querySelectorAll('.im-ev').forEach(function(cb){
+        cb.checked = saved.events.indexOf(parseInt(cb.value,10)) !== -1;
+      });
+    }
   }
+  recalcIterableMigration();
+}
+
+function imToggleEventMode(){
+  const mode = document.querySelector('input[name="im-evmode"]:checked').value;
+  document.getElementById('im-event-picker').style.display = mode === 'custom' ? 'block' : 'none';
+  recalcIterableMigration();
+}
+
+function imEventPreset(which){
+  const D = window._imData;
+  const usLive = (D && D.LIVE_EVENTS['United States']) || [];
+  document.querySelectorAll('.im-ev').forEach(function(cb){
+    const i = parseInt(cb.value,10);
+    if(which === 'all') cb.checked = true;
+    else if(which === 'none') cb.checked = false;
+    else if(which === 'us') cb.checked = usLive.indexOf(i) !== -1;
+  });
+  recalcIterableMigration();
+}
+
+function imScopePreset(which){
+  document.querySelectorAll('.im-cc').forEach(function(cb){
+    if(which === 'all') cb.checked = true;
+    else if(which === 'none') cb.checked = false;
+    else if(which === 'us') cb.checked = (cb.value === 'United States');
+  });
   recalcIterableMigration();
 }
 
 function recalcIterableMigration(){
   const D = window._imData; if(!D) return;
-  const country  = document.getElementById('im-country').value;
   const carrier  = document.getElementById('im-carrier').value;
   const scenario = document.getElementById('im-scenario').value;
   const optin    = parseFloat(document.getElementById('im-optin').value) || 100;
   const rates    = carrier === 'twilio' ? D.TWILIO : D.CLICKATELL;
+  const carrierName = carrier === 'twilio' ? 'Twilio' : 'Clickatell';
 
+  const scope = Array.from(document.querySelectorAll('.im-cc')).filter(function(cb){ return cb.checked; }).map(function(cb){ return cb.value; });
   const scale = scenario === 'full' ? (1/(optin/100)) : 1;
+  const evModeEl = document.querySelector('input[name="im-evmode"]:checked');
+  const evMode = evModeEl ? evModeEl.value : 'live';
+  const chosenEvents = Array.from(document.querySelectorAll('.im-ev')).filter(function(cb){ return cb.checked; }).map(function(cb){ return parseInt(cb.value,10); });
 
-  // Per country: segments = sum(participation% x orders x real segment count)
-  // events = sum(participation% x orders) — one custom event per trigger
-  const targets = country === '__all__' ? Object.keys(D.ORDERS) : [country];
-  let segments = 0, events = 0, carrierCost = 0, missingRate = [];
-  targets.forEach(function(c){
-    const orders = D.ORDERS[c] || 0;
-    const rate = rates[c];
-    if(rate === undefined){ if(orders > 0) missingRate.push(c); return; }
-    let segsC = 0, evC = 0;
-    D.US_EVENTS.forEach(function(e){
+  // Cost for a given country using a given set of event indexes
+  function costFor(country, evIdxs){
+    const orders = D.ORDERS[country] || 0;
+    const rate = rates[country];
+    if(rate === undefined) return null;
+    let segs = 0, evs = 0;
+    evIdxs.forEach(function(i){
+      const e = D.US_EVENTS[i]; if(!e) return;
       const fires = (e.p/100) * orders * scale;
-      evC   += fires;
-      segsC += fires * e.s;
+      evs  += fires;
+      segs += fires * e.s;
     });
-    segments += segsC; events += evC;
-    carrierCost += segsC * rate;
+    return {segments: segs, events: evs, cost: segs * rate};
+  }
+
+  let segments = 0, events = 0, carrierCost = 0;
+  let baselineCost = 0;   // what these markets send today
+  const missingRate = [];
+  let newlyActivated = 0; // count of country+event combos being switched on
+
+  scope.forEach(function(c){
+    const liveIdxs = (D.LIVE_EVENTS[c] || []);
+    const useIdxs = evMode === 'live' ? liveIdxs : chosenEvents;
+    const r = costFor(c, useIdxs);
+    if(r === null){ if((D.ORDERS[c]||0) > 0) missingRate.push(c); return; }
+    segments += r.segments; events += r.events; carrierCost += r.cost;
+
+    const b = costFor(c, liveIdxs);
+    if(b) baselineCost += b.cost;
+    if(evMode === 'custom'){
+      useIdxs.forEach(function(i){ if(liveIdxs.indexOf(i) === -1) newlyActivated++; });
+    }
   });
 
-  // Iterable incremental cost
-  const profilesRaw = document.getElementById('im-profiles').value.trim();
+  const profilesRaw   = document.getElementById('im-profiles').value.trim();
   const profiles      = profilesRaw === '' ? null : (parseFloat(profilesRaw) || 0);
   const profilesUsed  = parseFloat(document.getElementById('im-profiles-used').value) || 0;
   const eventsUsed    = parseFloat(document.getElementById('im-events-used').value) || 0;
@@ -3676,78 +3781,132 @@ function recalcIterableMigration(){
   const eventAllow    = parseFloat(document.getElementById('im-event-allow').value) || 0;
   const connectorMo   = parseFloat(document.getElementById('im-connector').value) || 0;
 
-  const monthlyEvents = events / 12;
+  const monthlyEvents  = events / 12;
   const eventOverUnits = Math.max(0, (monthlyEvents + eventsUsed) - eventAllow);
   const eventOverCost  = (eventOverUnits/1000) * D.ITER.eventCPM * 12;
 
   const profileOverUnits = profiles === null ? null : Math.max(0, (profiles + profilesUsed) - profileAllow);
   const profileOverCost  = profileOverUnits === null ? 0 : (profileOverUnits/1000) * D.ITER.profileCPM * 12;
 
-  const connectorYear = connectorMo * 12;
-  const iterablePlatform = connectorYear + eventOverCost + profileOverCost;
+  // Platform cost is paid ONCE for the migration, not per country.
+  const connectorYear   = scope.length ? connectorMo * 12 : 0;
+  const platformCost    = connectorYear + eventOverCost + profileOverCost;
   const fxTotal   = carrierCost;
-  const iterTotal = carrierCost + iterablePlatform;
+  const iterTotal = carrierCost + platformCost;
   const diff = iterTotal - fxTotal;
 
   function money(n){ return '$'+n.toLocaleString('en-US',{maximumFractionDigits:0}); }
   function num(n){ return n.toLocaleString('en-US',{maximumFractionDigits:0}); }
 
-  document.getElementById('im-fx').textContent = money(fxTotal);
-  document.getElementById('im-iter').textContent = money(iterTotal);
-  document.getElementById('im-diff').textContent = (diff>=0?'+':'')+money(diff);
-  document.getElementById('im-diff-note').textContent = diff>=0 ? 'More expensive on Iterable' : 'Cheaper on Iterable';
-  document.getElementById('im-segments').textContent = num(segments);
-  document.getElementById('im-events-note').textContent = num(events)+' events · '+num(monthlyEvents)+'/month';
+  // Scope label
+  const total = document.querySelectorAll('.im-cc').length;
+  let scopeLabel;
+  if(scope.length === 0) scopeLabel = 'no markets';
+  else if(scope.length === total) scopeLabel = 'all markets';
+  else if(scope.length === 1) scopeLabel = scope[0];
+  else if(scope.length <= 3) scopeLabel = scope.slice(0,-1).join(', ')+' and '+scope[scope.length-1];
+  else scopeLabel = scope.length+' markets';
+  document.getElementById('im-scope-count').textContent = scope.length+' of '+total+' selected';
 
-  // Honesty banner: proxy data + any market missing a carrier rate
+  // Headline sentence
+  const hl = document.getElementById('im-headline');
+  if(!scope.length){
+    hl.innerHTML = '<span style="color:var(--muted);font-weight:500;">Pick at least one market below to see the cost.</span>';
+  } else if(diff < 0){
+    hl.innerHTML = 'Moving <strong>'+esc(scopeLabel)+'</strong> to Iterable would '
+      + '<span style="color:#1E7A3C;">save about '+money(Math.abs(diff))+' per year</span>.';
+  } else {
+    hl.innerHTML = 'Moving <strong>'+esc(scopeLabel)+'</strong> to Iterable would cost about '
+      + '<span style="color:var(--orange);">'+money(diff)+' more per year</span>, '
+      + 'on top of the '+money(carrierCost)+' we already pay '+carrierName+' for SMS.';
+  }
+
+  document.getElementById('im-carrier-cost').textContent = money(carrierCost);
+  document.getElementById('im-carrier-note').textContent = carrierName+' rates · '+scope.length+' market'+(scope.length===1?'':'s');
+
+  // Event coverage context
+  const evCountEl = document.getElementById('im-event-count');
+  if(evCountEl) evCountEl.textContent = chosenEvents.length+' of '+D.US_EVENTS.length+' events selected';
+  const liveNote = document.getElementById('im-live-note');
+  if(liveNote){
+    if(!scope.length){ liveNote.textContent = ''; }
+    else if(evMode === 'live'){
+      const counts = scope.map(function(c){ return (D.LIVE_EVENTS[c]||[]).length; });
+      const totalLive = counts.reduce(function(a,b){ return a+b; },0);
+      const noneLive = scope.filter(function(c){ return !(D.LIVE_EVENTS[c]||[]).length; });
+      liveNote.innerHTML = 'Using each market&rsquo;s real current coverage: '+totalLive+' country+event combinations live across '+scope.length+' market'+(scope.length===1?'':'s')+'.'
+        + (noneLive.length ? ' <strong>'+noneLive.length+'</strong> selected market'+(noneLive.length>1?'s have':' has')+' no live SMS events at all, so contribute nothing here.' : '');
+    } else {
+      const extra = newlyActivated > 0
+        ? ' <strong>'+newlyActivated+'</strong> country+event combination'+(newlyActivated>1?'s':'')+' would be newly activated, adding <strong>'+money(Math.max(0, carrierCost - baselineCost))+'</strong>/year in SMS cost vs. today.'
+        : ' This matches what these markets already send, so no new SMS cost.';
+      liveNote.innerHTML = 'Modelling a chosen event set across all selected markets.'+extra;
+    }
+  }
+  document.getElementById('im-platform-cost').textContent = money(platformCost);
+  document.getElementById('im-platform-note').textContent = platformCost > 0
+    ? 'Connector fee'+(eventOverCost>0?' + event overage':'')+(profileOverCost>0?' + profile overage':'')
+    : 'No platform cost for this scope';
+
+  // Banner
   const banner = document.getElementById('im-proxy-banner');
   const notes = [];
-  if(country !== 'United States'){
-    notes.push('<strong>Estimate, not measured.</strong> Event participation rates come from real 2025 US data and are applied as a proxy to other markets, since the US is the only market with behavioural telemetry. Segment counts also use US message lengths.');
+  const nonUS = scope.filter(function(c){ return c !== 'United States'; });
+  if(nonUS.length){
+    notes.push('<strong>Estimate for non-US markets.</strong> Event rates and message lengths come from real 2025 US data, applied as a proxy — the US is the only market with behavioural telemetry. The US figure is measured; the rest are modelled.');
   }
   if(missingRate.length){
-    notes.push('<strong>'+missingRate.length+' market'+(missingRate.length>1?'s':'')+' excluded</strong> — no '+(carrier==='twilio'?'Twilio':'Clickatell')+' rate on file: '+missingRate.slice(0,12).join(', ')+(missingRate.length>12?', and '+(missingRate.length-12)+' more':'')+'.');
+    notes.push('<strong>'+missingRate.length+' selected market'+(missingRate.length>1?'s':'')+' excluded</strong> — no '+carrierName+' rate on file: '+missingRate.slice(0,10).join(', ')+(missingRate.length>10?', and '+(missingRate.length-10)+' more':'')+'.');
   }
   if(profiles === null){
-    notes.push('<strong>Profile cost not included.</strong> Enter the number of B&amp;M profiles under contract inputs to include any profile overage.');
+    notes.push('<strong>Profile cost not yet included.</strong> We don\'t have the B&amp;M profile count yet. Enter it under contract inputs to include any profile overage.');
   }
   if(notes.length){ banner.style.display='block'; banner.innerHTML = notes.join('<br>'); }
   else { banner.style.display='none'; }
 
   // Bars
   const maxV = Math.max(fxTotal, iterTotal, 1);
-  function bar(label, val, color){
+  function bar(label, val, color, sub){
     const w = Math.max(2,(val/maxV)*100);
     return '<div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">'
-      + '<span style="font-weight:600;color:var(--text);">'+label+'</span>'
+      + '<span style="font-weight:600;color:var(--text);">'+label+'<span style="font-weight:400;color:var(--muted);"> · '+sub+'</span></span>'
       + '<span style="font-weight:700;color:'+color+';">'+money(val)+'</span></div>'
-      + '<div style="background:var(--bg);border-radius:6px;height:22px;overflow:hidden;">'
+      + '<div style="background:var(--bg);border-radius:6px;height:24px;overflow:hidden;">'
       + '<div style="background:'+color+';height:100%;width:'+w+'%;border-radius:6px;transition:width .3s;"></div></div></div>';
   }
   document.getElementById('im-bars').innerHTML =
-      bar('Stay on FX Client ('+(carrier==='twilio'?'Twilio':'Clickatell')+')', fxTotal, 'var(--text)')
-    + bar('Move to Iterable ('+(carrier==='twilio'?'Twilio':'Clickatell')+')', iterTotal, 'var(--purple)');
+      bar('Stay on FX Client', fxTotal, 'var(--text)', 'SMS only')
+    + bar('Move to Iterable', iterTotal, 'var(--purple)', 'SMS + platform');
 
-  // Breakdown table
-  const rowsHtml = [
-    ['Carrier cost — '+(carrier==='twilio'?'Twilio':'Clickatell'), money(carrierCost), 'Paid either way, on FX Client or Iterable'],
-    ['Iterable connector fee', money(connectorYear), '$'+connectorMo.toLocaleString('en-US')+'/month — contract line "3rd Party SMS+MMS Fee - USA"'],
-    ['Custom event overage', money(eventOverCost), eventOverUnits>0 ? num(eventOverUnits)+' events/month above allowance' : 'Within the '+num(eventAllow)+'/month allowance — no overage'],
+  // Breakdown
+  const breakdownRows = [
+    ['SMS sending cost — '+carrierName, money(carrierCost), 'Paid either way, on FX Client or Iterable. Varies by market.'],
+  ];
+  if(evMode === 'custom' && newlyActivated > 0){
+    breakdownRows.push(['&nbsp;&nbsp;&nbsp;of which, newly activated events', money(Math.max(0, carrierCost - baselineCost)),
+      newlyActivated+' country+event combination'+(newlyActivated>1?'s':'')+' not live today. Today these markets spend '+money(baselineCost)+'.']);
+  }
+  breakdownRows.push(
+    ['Iterable connector fee', money(connectorYear), '$'+connectorMo.toLocaleString('en-US')+'/month, contract line "3rd Party SMS+MMS Fee - USA". Charged once, not per market.'],
+    ['Custom event overage', money(eventOverCost), eventOverUnits>0 ? num(eventOverUnits)+' events/month above allowance' : 'Within the '+num(eventAllow)+'/month allowance — no overage. ('+num(monthlyEvents)+'/month from this scope.)'],
     ['Profile overage', profiles===null ? 'not set' : money(profileOverCost), profiles===null ? 'Enter profiles added to calculate' : (profileOverUnits>0 ? num(profileOverUnits)+' profiles above allowance' : 'Within the '+num(profileAllow)+' allowance — no overage')],
-    ['<strong>Iterable platform cost</strong>', '<strong>'+money(iterablePlatform)+'</strong>', 'New cost on top of the carrier cost'],
-  ].map(function(r,i){
-    const last = i===4;
+    ['<strong>Extra cost of moving to Iterable</strong>', '<strong>'+money(platformCost)+'</strong>', 'The platform cost on top of what we already pay for SMS']
+  );
+  const lastIdx = breakdownRows.length - 1;
+  const rowsHtml = breakdownRows.map(function(r,i){
+    const last = i===lastIdx;
     return '<tr style="'+(last?'border-top:2px solid var(--border);':'')+'">'
       + '<td style="padding:8px 10px;font-size:12px;color:var(--text);">'+r[0]+'</td>'
-      + '<td style="padding:8px 10px;font-size:12px;text-align:right;color:'+(last?'var(--purple)':'var(--text)')+';white-space:nowrap;">'+r[1]+'</td>'
+      + '<td style="padding:8px 10px;font-size:12px;text-align:right;color:'+(last?'var(--orange)':'var(--text)')+';white-space:nowrap;">'+r[1]+'</td>'
       + '<td style="padding:8px 10px;font-size:11px;color:var(--muted);">'+r[2]+'</td></tr>';
   }).join('');
   document.getElementById('im-breakdown').innerHTML = rowsHtml;
 
   try{
     localStorage.setItem('riaMessagingHub_iterableMigration', JSON.stringify({
-      version:1, country:country, carrier:carrier, scenario:scenario, optin:optin,
+      version:2, scope:scope, carrier:carrier, scenario:scenario, optin:optin,
       profiles: profiles, profilesUsed: profilesUsed, eventsUsed: eventsUsed,
+      evMode: evMode, events: chosenEvents,
     }));
   } catch(e){}
 }
