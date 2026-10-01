@@ -1812,7 +1812,10 @@ function mountExpandedInline(campaign, journeyId){
 
 
 function renderJourneys(){
-  if(activeBrand === 'ria' && activeAudience === 'digital'){
+  // Xe's only journey data is its live Iterable pull, so it always uses that
+  // renderer regardless of audience. Ria uses it for Digital only; Ria B&M
+  // falls through to the hardcoded journey map below.
+  if(activeBrand === 'xe' || activeAudience === 'digital'){
     renderIterableJourneys();
     return;
   }
