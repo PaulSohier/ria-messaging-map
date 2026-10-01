@@ -732,6 +732,13 @@ const TOOLS_NAV = [
     {id:'p7', icon:'', label:'How we calculate this'},
   ]},
 ];
+// Xe currently has live Iterable journey data only — no sheet-fed library of
+// its own yet, so its nav shows what actually exists rather than empty pages.
+const XE_NAV = [
+  {section:'Explore', items:[
+    {id:'p2', icon:'', label:'Customer journeys'},
+  ]},
+];
 const TOOLS_PAGE_IDS = TOOLS_NAV.flatMap(function(s){ return s.items.map(function(i){ return i.id; }); });
 let hubMode = 'explore'; // 'explore' or 'tools' — derived from the deep-linked tab at init, see INIT block
 
@@ -758,7 +765,14 @@ function renderSidebarNav(){
   // Tools are Ria-specific for now, so Xe shows the same "not built yet" note
   // in Tools mode as it does in Explore — check brand before mode.
   if(activeBrand === 'xe'){
-    nav.innerHTML = '<div style="padding:16px 12px;font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;">Xe isn\'t built yet — this option exists so the structure is ready when that work starts.</div>';
+    // Xe has live Iterable journey data (Digital/Production). The Flow Map and
+    // Messages Library are sheet-fed and that sheet is Ria-only, so Xe shows
+    // just what it actually has rather than empty pages.
+    if(hubMode === 'tools'){
+      nav.innerHTML = '<div style="padding:16px 12px;font-size:12px;color:rgba(255,255,255,.45);line-height:1.5;">Cost modeling is Ria B&amp;M only for now. Switch to Ria to use it.</div>';
+      return;
+    }
+    renderNavSections(XE_NAV);
     return;
   }
   if(hubMode === 'tools'){
@@ -784,7 +798,13 @@ window.setHubMode = function(mode){
 
   renderSidebarNav();
   if(activeBrand === 'xe'){
-    renderXePlaceholder();
+    if(mode === 'tools'){
+      renderXeToolsNotice();
+    } else {
+      activeTab = 'p2';
+      activateNavTabFor('p2');
+      renderPage('p2');
+    }
   } else {
     if(mode === 'tools' && TOOLS_PAGE_IDS.indexOf(activeTab) === -1) activeTab = TOOLS_PAGE_IDS[0];
     activateNavTabFor(activeTab);
@@ -825,7 +845,13 @@ function setBrand(brand){
     renderPage(activeTab);
   } else {
     renderSidebarNav();
-    renderXePlaceholder();
+    if(hubMode === 'tools'){
+      renderXeToolsNotice();
+    } else {
+      activeTab = 'p2';
+      activateNavTabFor('p2');
+      renderPage('p2');
+    }
   }
   updateURLState();
 }
@@ -854,13 +880,15 @@ function renderXePlaceholder(){
     document.querySelector('.main-content').appendChild(holder);
   }
   holder.classList.add('active');
-  holder.innerHTML = '<div class="page-title">Xe <span class="page-note">Not built yet</span></div>'
+  holder.innerHTML = '<div class="page-title">Xe <span class="page-note">Cost modeling not available</span></div>'
     + '<div style="max-width:480px;padding:60px 0;text-align:center;margin:0 auto;">'
-    + '<div style="font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text);">Xe isn\'t built yet</div>'
-    + '<div style="font-size:13px;color:var(--muted);line-height:1.6;">This option exists in the switcher so the structure is ready for when Xe messaging work starts. Nothing here is designed or populated yet.</div>'
-    + '<button class="btn-primary" style="margin-top:20px;" onclick="setBrand(\'ria\')">Back to Ria</button>'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text);">Cost modeling is Ria B&amp;M only</div>'
+    + '<div style="font-size:13px;color:var(--muted);line-height:1.6;">The cost calculators are built on Ria B&amp;M SMS data. Xe\'s live customer journeys are available under Messaging.</div>'
+    + '<button class="btn-primary" style="margin-top:20px;" onclick="setHubMode(\'explore\')">View Xe journeys</button>'
     + '</div>';
 }
+// Kept under the old name too, since several call sites referenced it.
+function renderXeToolsNotice(){ renderXePlaceholder(); }
 
 function setIntent(key, el){
   activeIntent = key;
@@ -1387,7 +1415,10 @@ async function renderIterableJourneys(){
 
   let data;
   try {
-    const res = await fetch('data/iterable-journeys.json');
+    const dataFile = activeBrand === 'xe'
+      ? 'data/iterable-journeys-xe-prod.json'
+      : 'data/iterable-journeys-ria-prod.json';
+    const res = await fetch(dataFile);
     if(!res.ok) throw new Error('fetch failed: '+res.status);
     data = await res.json();
   } catch(e) {
@@ -1395,7 +1426,7 @@ async function renderIterableJourneys(){
     if(searchRow) searchRow.style.display = 'none';
     if(pageNote) pageNote.textContent = 'What messages a customer receives — happy and unhappy paths';
     container.innerHTML = '<div class="empty-intent"><div class="empty-intent-title">Could not load Iterable journey data</div>'
-      + '<div class="empty-intent-sub">Check that data/iterable-journeys.json exists on this branch.</div></div>';
+      + '<div class="empty-intent-sub">Expected data/iterable-journeys-'+(activeBrand==='xe'?'xe':'ria')+'-prod.json on this branch.</div></div>';
     return;
   }
 
@@ -1579,7 +1610,36 @@ function seededRandom(seed){
   const x = Math.sin(seed) * 10000;
   return x - Math.floor(x);
 }
-function mockMetricsHtml(campaignId){
+function mockMetricsHtml(campaignId, campaign){
+  const m = (campaign && campaign.metrics) || null;
+  if(m){
+    // Real metrics from the Iterable pull. Rates are computed against
+    // delivered where we have it, since that's the real denominator for
+    // opens and clicks; anything Iterable returned as null stays blank
+    // rather than being shown as a zero.
+    const pct = function(num, den){
+      if(num === null || num === undefined || !den) return null;
+      return (num/den*100);
+    };
+    const openR  = pct(m.opens, m.delivered);
+    const clickR = pct(m.clicks, m.delivered);
+    const unsubR = pct(m.unsubscribes, m.delivered);
+    function rstat(value, label){
+      return '<div style="flex:1;text-align:center;padding:10px 6px;">'
+        + '<div style="font-size:18px;font-weight:700;color:var(--text);">'+value+'</div>'
+        + '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px;">'+label+'</div>'
+        + '</div>';
+    }
+    const fmt = function(v){ return v === null ? '—' : v.toFixed(1)+'%'; };
+    return '<div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:relative;">'
+      + '<span style="position:absolute;top:4px;right:8px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--hint);">Live from Iterable</span>'
+      + rstat((m.sent||0).toLocaleString('en-US'), 'Sent')
+      + rstat((m.delivered||0).toLocaleString('en-US'), 'Delivered')
+      + rstat(fmt(openR), 'Open rate')
+      + rstat(fmt(clickR), 'Click rate')
+      + rstat(fmt(unsubR), 'Unsubscribe rate')
+      + '</div>';
+  }
   const sent = Math.floor(500 + seededRandom(campaignId) * 15000);
   const openRate = Math.round(15 + seededRandom(campaignId + 1) * 45);
   const clickRate = Math.round(2 + seededRandom(campaignId + 2) * 18);
@@ -1669,7 +1729,7 @@ function toggleIterableCampaign(campId, journeyId){
 
   panel.innerHTML = '<div class="iter-expanded-hdr"><span>'+esc(target.name)+'</span>'
     + '<button onclick="toggleIterableCampaign('+target.id+','+journeyId+')" class="iter-expand-close">Collapse</button></div>'
-    + mockMetricsHtml(target.id)
+    + mockMetricsHtml(target.id, target)
     + '<div class="iter-expanded-body" id="iter-expand-body-'+journeyId+'"></div>';
   panel.classList.add('open');
   mountExpandedInline(target, journeyId);
@@ -4277,7 +4337,13 @@ updateAudienceLabels(activeBrand);
 renderSidebarNav();
 buildIntentBar();
 if(activeBrand === 'xe'){
-  renderXePlaceholder();
+  if(hubMode === 'tools'){
+    renderXeToolsNotice();
+  } else {
+    activeTab = 'p2';
+    activateNavTabFor('p2');
+    renderPage('p2');
+  }
 } else {
   activateNavTabFor(activeTab);
   renderPage(activeTab);
