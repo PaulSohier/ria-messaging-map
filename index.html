@@ -422,6 +422,10 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
   <div class="intent-pill active" data-p1channel="all" onclick="setP1ChannelFilter('all')">All</div>
   <div class="intent-pill" data-p1channel="SMS" onclick="setP1ChannelFilter('SMS')">SMS</div>
   <div class="intent-pill" data-p1channel="WhatsApp" onclick="setP1ChannelFilter('WhatsApp')">WhatsApp</div>
+  <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;user-select:none;margin-left:14px;padding-left:14px;border-left:1px solid var(--border);">
+    <input type="checkbox" id="p1-fill-placeholders" onchange="setP1FillPlaceholders(this.checked)" style="cursor:pointer;">
+    Fill placeholders with sample data
+  </label>
 </div>
 <div id="p1-content"></div></div>
 <div class="page" id="p2"><div class="page-title"><span style="display:flex;align-items:center;gap:8px;">Customer journeys<span id="p2-iter-badge" style="display:none;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 10px;border-radius:20px;background:var(--purple-bg);color:var(--purple);">via Iterable</span></span><span class="page-note" id="p2-page-note">What messages a customer receives — happy and unhappy paths</span></div>
@@ -524,6 +528,60 @@ function riaSendingToggleHtml(){
 
 let searchQuery = '';
 let p1CountryFilter = 'all';
+let p1FillPlaceholders = false;
+
+// Sample values for the Messages Library placeholder preview.
+// Lengths are deliberately near the real median for each field, so a filled
+// message reads at a realistic character count — the point is to judge SMS
+// length, not just readability. Names vary in length on purpose, as real ones
+// do. Correspondent and agent values are taken from real Ria data.
+// Ria PayID is intentionally absent: its format is unknown, so it is left as
+// the raw placeholder rather than filled with something invented.
+const P1_PLACEHOLDER_VALUES = {
+  'Customer First Name': 'Carlos',
+  'Customer Last Name': 'Ramirez',
+  'Beneficiary First Name': 'Lucia',
+  'Beneficiary Last Name': 'Morales',
+  'Order Number': 'US896541236',
+  'PIN': '9654882031',
+  'Refund PIN': '7854123690',
+  'Foreign Amount': '1,250.00',
+  'Local Amount': '1,250.00',
+  'Total Amount': '1,268.50',
+  'Amount': '1,250.00',
+  'Customer Fee': '18.50',
+  'Payout Currency': 'MXN',
+  'Payin Currency': 'USD',
+  'Currency': 'USD',
+  'Recipient Country': 'Mexico',
+  'Beneficiary City': 'Guadalajara',
+  'Rate': '17.85',
+  'Sent Date': '01/05/2026',
+  'Dynamic Link w/ Omni Token for Digital User': 'https://www.riamoneytransfer.com/en-us/terms/',
+  'Customer Required Items list for Transaction': 'a photo ID, proof of address and proof of income',
+  'Agent Name': 'Walmart Store 2451',
+  'Correspondent Display Name': 'Banco Azteca Bank Deposit',
+  'Correspondent Name': 'Banco Azteca Bank Deposit (Direct)',
+};
+
+// Replaces <Angle Bracket> placeholders with sample values. WhatsApp's {{1}}
+// and {{Named}} styles are deliberately left alone: WhatsApp isn't billed by
+// length, and the numbered variables' field mapping is still unconfirmed.
+function fillPlaceholders(text){
+  if(!text) return text;
+  return text.replace(/<([^<>]{1,60})>/g, function(whole, inner){
+    const key = inner.trim();
+    if(Object.prototype.hasOwnProperty.call(P1_PLACEHOLDER_VALUES, key)){
+      return P1_PLACEHOLDER_VALUES[key];
+    }
+    return whole; // unknown placeholder (e.g. Ria PayID) stays visible as-is
+  });
+}
+
+function setP1FillPlaceholders(on){
+  p1FillPlaceholders = !!on;
+  renderP1();
+}
 let p1ChannelFilter = 'all';
 let p2CountryFilter = 'all'; // Customer Journeys — B&M only (SMS is the only channel with per-country variants)
 
@@ -2329,6 +2387,8 @@ function toggleMsg(el){
 function renderP1(){
   const p1FilterRow = document.getElementById('p1-filter-row');
   if(p1FilterRow) p1FilterRow.style.display = activeAudience === 'bm' ? 'flex' : 'none';
+  const fillBox = document.getElementById('p1-fill-placeholders');
+  if(fillBox) fillBox.checked = p1FillPlaceholders;
   const intentsToRender = activeIntent==='all' ? INTENTS : [INTENTS.find(i=>i.key===activeIntent)||{label:'',data:[],icon:'',key:''}];
   let totalLive = 0;
   let totalMatched = 0;
@@ -2402,7 +2462,9 @@ function renderP1(){
           msgs.forEach(function(m){
             var region = [m.r1,m.r2,m.r3].filter(function(v){ return v&&v!=='nan'; }).join(', ') || m.region || '';
             var agent = (m.agent&&m.agent!=='nan') ? m.agent : (m.group&&m.group!=='nan') ? m.group : '';
-            var rawMsg = m.msg || '';
+            // Fill before measuring, so the SMS oversize tag reflects the
+            // real sent length rather than the shorter template text.
+            var rawMsg = p1FillPlaceholders ? fillPlaceholders(m.msg || '') : (m.msg || '');
             var isLong = rawMsg.length > 120;
             // if searching and the match sits outside the short preview, expand the card so the match is visible
             var forceExpand = false;
