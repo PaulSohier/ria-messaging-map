@@ -557,20 +557,40 @@ const P1_PLACEHOLDER_VALUES = {
   'Beneficiary City': 'Guadalajara',
   'Rate': '17.85',
   'Sent Date': '01/05/2026',
-  'Dynamic Link w/ Omni Token for Digital User': 'https://www.riamoneytransfer.com/en-us/terms/',
+  // Locale-aware: see P1_LINK_BY_LOCALE below. This entry is the fallback
+  // used if language detection somehow fails.
+  'Dynamic Link w/ Omni Token for Digital User': 'https://www.riamoneytransfer.com/en-us/track-a-transfer/',
   'Customer Required Items list for Transaction': 'a photo ID, proof of address and proof of income',
   'Agent Name': 'Walmart Store 2451',
   'Correspondent Display Name': 'Banco Azteca Bank Deposit',
   'Correspondent Name': 'Banco Azteca Bank Deposit (Direct)',
 };
 
+// The tracking link is locale specific. The Language column is blank on these
+// rows, so the language is detected from the message text itself. Both URLs
+// are the same length (56 chars), so this does not change SMS sizing.
+const P1_LINK_KEY = 'Dynamic Link w/ Omni Token for Digital User';
+const P1_LINK_BY_LOCALE = {
+  en: 'https://www.riamoneytransfer.com/en-us/track-a-transfer/',
+  es: 'https://www.riamoneytransfer.com/es-us/track-a-transfer/',
+};
+function detectMessageLocale(text){
+  const t = (text || '');
+  if(/\bHola\b|Tarifas por msj|Responde STOP|La transferencia|Consulta el historial|Rastrea/i.test(t)) return 'es';
+  return 'en';
+}
+
 // Replaces <Angle Bracket> placeholders with sample values. WhatsApp's {{1}}
 // and {{Named}} styles are deliberately left alone: WhatsApp isn't billed by
 // length, and the numbered variables' field mapping is still unconfirmed.
 function fillPlaceholders(text){
   if(!text) return text;
+  const locale = detectMessageLocale(text);
   return text.replace(/<([^<>]{1,60})>/g, function(whole, inner){
     const key = inner.trim();
+    if(key === P1_LINK_KEY){
+      return P1_LINK_BY_LOCALE[locale] || P1_PLACEHOLDER_VALUES[key];
+    }
     if(Object.prototype.hasOwnProperty.call(P1_PLACEHOLDER_VALUES, key)){
       return P1_PLACEHOLDER_VALUES[key];
     }
