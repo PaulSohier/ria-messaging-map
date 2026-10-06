@@ -106,6 +106,13 @@ body.brand-xe{--orange:#1B57D6;--orange-bg:#E8EEFB;--orange-dim:#1846AD;--purple
 .optin-stat-sub{font-size:10.5px;color:var(--muted);margin-top:2px;}
 .optin-swatch{width:8px;height:8px;border-radius:2px;display:inline-block;flex-shrink:0;}
 .optin-chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:18px;}
+.optin-chart-wrap{position:relative;}
+.optin-tip{display:none;position:absolute;top:10px;z-index:5;pointer-events:none;background:var(--card);border:1px solid var(--border-mid);border-radius:8px;padding:8px 11px;box-shadow:0 4px 14px rgba(0,0,0,.12);min-width:130px;}
+.optin-tip-date{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+.optin-tip-row{display:flex;align-items:center;gap:6px;font-size:11px;line-height:1.7;}
+.optin-tip-key{flex:1;color:var(--text);}
+.optin-tip-val{font-weight:700;color:var(--text);}
+.optin-zoom{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;user-select:none;margin-left:16px;}
 .optin-chart-title{font-size:13px;font-weight:700;margin-bottom:2px;}
 .optin-chart-note{font-size:11px;color:var(--muted);margin-bottom:12px;}
 .optin-legend{display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--muted);flex-wrap:wrap;}
@@ -4113,6 +4120,7 @@ const OPTIN_CHANNELS = [
 ];
 let p8Selected = []; // array of country codes; empty = "all countries (global)"
 let p8DropdownOpen = false;
+let p8ZoomAxis = false; // false = honest 0-100 axis, true = fit axis to the data
 let p8SearchTerm = '';
 window._optinSort = {col:'total', dir:'desc'};
 
@@ -4140,34 +4148,182 @@ function optinFormatM(n){
 
 function optinTrendSVG(snapshots, seriesDefs, opts){
   opts = opts || {};
-  const w = 680, h = 190, padL=34, padR=14, padT=14, padB=24;
+  const w = 680, h = 210, padL=34, padR=14, padT=14, padB=34;
   const n = snapshots.length;
   const plotW = w-padL-padR, plotH = h-padT-padB;
-  const xAt = i => n<=1 ? padL+plotW/2 : padL + (i/(n-1))*plotW;
-  const yAt = v => padT + (1-Math.max(0,Math.min(100,v||0))/100)*plotH;
 
-  let svg = '<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:'+h+'px;overflow:visible;display:block;">';
-  [0,25,50,75,100].forEach(function(gv){
-    svg += '<line x1="'+padL+'" x2="'+(w-padR)+'" y1="'+yAt(gv)+'" y2="'+yAt(gv)+'" stroke="var(--border)" stroke-width="1"/>';
-    svg += '<text x="'+(padL-8)+'" y="'+(yAt(gv)+3)+'" text-anchor="end" font-size="9" fill="var(--hint)">'+gv+'%</text>';
+  // Collect every value first, so the axis can be fitted to the data when
+  // "Zoom to data range" is on. Default stays 0-100, which is the honest
+  // view: these rates barely move day to day, and a tight axis would turn
+  // small wobbles into dramatic-looking swings.
+  const seriesVals = seriesDefs.map(function(s){
+    return snapshots.map(function(snap){ return opts.getValue(snap, s); });
   });
-  seriesDefs.forEach(function(s){
-    const pts = snapshots.map(function(snap,i){ return {x:xAt(i), y:yAt(opts.getValue(snap,s)), v:opts.getValue(snap,s)}; });
+  const flat = [];
+  seriesVals.forEach(function(arr){ arr.forEach(function(v){ if(v!==undefined && v!==null && !isNaN(v)) flat.push(v); }); });
+
+  let yMin = 0, yMax = 100, step = 25;
+  if(p8ZoomAxis && flat.length){
+    const lo = Math.min.apply(null, flat), hi = Math.max.apply(null, flat);
+    const pad = Math.max(1, (hi-lo) * 0.15);
+    const rawSpan = Math.max(4, (hi + pad) - (lo - pad));
+    // Pick a round tick step (1, 2, 5, 10, 20, 25) so gridline labels read
+    // as clean numbers instead of values like 39% or 59%.
+    const steps = [1,2,5,10,20,25,50];
+    step = steps.filter(function(s){ return rawSpan / s <= 5; })[0] || 50;
+    yMin = Math.max(0, Math.floor((lo - pad) / step) * step);
+    yMax = Math.min(100, Math.ceil((hi + pad) / step) * step);
+    if(yMax - yMin < step * 2){ yMax = Math.min(100, yMin + step * 2); }
+  }
+  const span = (yMax - yMin) || 1;
+
+  const xAt = i => n<=1 ? padL+plotW/2 : padL + (i/(n-1))*plotW;
+  const yAt = v => padT + (1-((Math.max(yMin,Math.min(yMax,v||0)) - yMin)/span))*plotH;
+
+  // Gridline ticks: 5 evenly spaced across whatever range is in use.
+  const ticks = [];
+  for(let v=yMin; v<=yMax+0.0001; v+=step){ ticks.push(v); }
+
+  const chartId = 'optinchart_'+(window._optinChartSeq = (window._optinChartSeq||0)+1);
+
+  let svg = '<svg id="'+chartId+'" viewBox="0 0 '+w+' '+h+'" style="width:100%;height:'+h+'px;overflow:visible;display:block;">';
+  ticks.forEach(function(gv){
+    svg += '<line x1="'+padL+'" x2="'+(w-padR)+'" y1="'+yAt(gv).toFixed(1)+'" y2="'+yAt(gv).toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>';
+    svg += '<text x="'+(padL-8)+'" y="'+(yAt(gv)+3).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--hint)">'+(step<1?gv.toFixed(1):String(Math.round(gv)))+'%</text>';
+  });
+
+  // Hover guide, hidden until the pointer is over the plot.
+  svg += '<line class="optin-guide" x1="0" x2="0" y1="'+padT+'" y2="'+(padT+plotH)+'" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" style="opacity:0;"/>';
+
+  // Dots are only drawn when there are few enough to stay readable. Past that
+  // the line alone carries the shape, and the hover guide gives exact values.
+  const showDots = n <= 14;
+
+  seriesDefs.forEach(function(s, si){
+    const vals = seriesVals[si];
+    const pts = vals.map(function(v,i){ return {x:xAt(i), y:yAt(v), v:v}; });
     if(n===1){
       svg += '<circle cx="'+pts[0].x+'" cy="'+pts[0].y+'" r="5" style="fill:'+s.color+'"/>';
       svg += '<text x="'+(pts[0].x+10)+'" y="'+(pts[0].y+3)+'" font-size="10" font-weight="700" style="fill:'+s.color+'">'+(pts[0].v||0).toFixed(1)+'%</text>';
     } else {
       const d = pts.map(function(p,i){ return (i===0?'M':'L')+p.x.toFixed(1)+','+p.y.toFixed(1); }).join(' ');
-      svg += '<path d="'+d+'" fill="none" style="stroke:'+s.color+'" stroke-width="2" stroke-linecap="round"/>';
-      pts.forEach(function(p){ svg += '<circle cx="'+p.x+'" cy="'+p.y+'" r="3" style="fill:'+s.color+'"><title>'+s.key+': '+(p.v||0).toFixed(1)+'%</title></circle>'; });
+      svg += '<path d="'+d+'" fill="none" style="stroke:'+s.color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+      if(showDots){
+        pts.forEach(function(p){ svg += '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="2.5" style="fill:'+s.color+'"/>'; });
+      }
+      // Marker that follows the hover guide, one per series.
+      svg += '<circle class="optin-hoverdot" data-series="'+si+'" r="4" style="fill:'+s.color+';stroke:var(--card);stroke-width:1.5;opacity:0;" cx="0" cy="0"/>';
     }
   });
-  if(n>=1){
-    svg += '<text x="'+xAt(0)+'" y="'+(h-6)+'" text-anchor="'+(n===1?'middle':'start')+'" font-size="9" fill="var(--hint)">'+snapshots[0].date+'</text>';
-    if(n>1) svg += '<text x="'+xAt(n-1)+'" y="'+(h-6)+'" text-anchor="end" font-size="9" fill="var(--hint)">'+snapshots[n-1].date+'</text>';
+
+  // X labels: up to 5 evenly spaced dates, so the axis stays readable as days
+  // accumulate instead of only showing first and last.
+  if(n===1){
+    svg += '<text x="'+xAt(0)+'" y="'+(h-10)+'" text-anchor="middle" font-size="9" fill="var(--hint)">'+snapshots[0].date+'</text>';
+  } else if(n>1){
+    const maxLabels = Math.min(5, n);
+    const idxs = [];
+    for(let k=0;k<maxLabels;k++){ idxs.push(Math.round(k*(n-1)/(maxLabels-1))); }
+    idxs.filter(function(v,i,a){ return a.indexOf(v)===i; }).forEach(function(i){
+      const anchor = i===0 ? 'start' : (i===n-1 ? 'end' : 'middle');
+      svg += '<text x="'+xAt(i).toFixed(1)+'" y="'+(h-10)+'" text-anchor="'+anchor+'" font-size="9" fill="var(--hint)">'+snapshots[i].date+'</text>';
+    });
   }
+
+  // Transparent capture area for pointer tracking.
+  svg += '<rect class="optin-hit" x="'+padL+'" y="'+padT+'" width="'+plotW+'" height="'+plotH+'" fill="transparent" style="cursor:crosshair;"/>';
   svg += '</svg>';
-  return svg;
+
+  // Register the data so the hover handler can read values without re-deriving them.
+  window._optinCharts = window._optinCharts || {};
+  window._optinCharts[chartId] = {
+    dates: snapshots.map(function(s){ return s.date; }),
+    series: seriesDefs.map(function(s, si){ return {key:s.key, color:s.color, vals:seriesVals[si]}; }),
+    geo: {padL:padL, plotW:plotW, n:n, vbW:w},
+  };
+
+  return '<div class="optin-chart-wrap">'+svg+'<div class="optin-tip" id="tip_'+chartId+'"></div></div>';
+}
+
+// Attaches hover behaviour to every chart currently on the page. Called after
+// the opt-in page writes its HTML, since the SVG is built as a string.
+function optinWireCharts(){
+  const reg = window._optinCharts || {};
+  Object.keys(reg).forEach(function(id){
+    const svg = document.getElementById(id);
+    if(!svg || svg.dataset.wired) return;
+    const data = reg[id];
+    if(data.geo.n < 2) return;
+    svg.dataset.wired = '1';
+    const tip = document.getElementById('tip_'+id);
+    const guide = svg.querySelector('.optin-guide');
+    const dots = Array.prototype.slice.call(svg.querySelectorAll('.optin-hoverdot'));
+    const hit = svg.querySelector('.optin-hit');
+
+    function hide(){
+      if(guide) guide.style.opacity = '0';
+      dots.forEach(function(d){ d.style.opacity = '0'; });
+      if(tip) tip.style.display = 'none';
+    }
+
+    function move(ev){
+      const rect = svg.getBoundingClientRect();
+      const scale = data.geo.vbW / rect.width;          // viewBox units per CSS pixel
+      const vbX = (ev.clientX - rect.left) * scale;     // pointer in viewBox space
+      const t = (vbX - data.geo.padL) / data.geo.plotW; // 0..1 across the plot
+      let i = Math.round(t * (data.geo.n - 1));
+      i = Math.max(0, Math.min(data.geo.n - 1, i));
+      const x = data.geo.padL + (i/(data.geo.n-1))*data.geo.plotW;
+
+      if(guide){ guide.setAttribute('x1', x); guide.setAttribute('x2', x); guide.style.opacity = '1'; }
+      dots.forEach(function(d){
+        const si = parseInt(d.getAttribute('data-series'),10);
+        const pathPts = data.series[si];
+        if(!pathPts) return;
+        // Re-read the y from the rendered path is awkward, so reuse the circle
+        // positions by asking the sibling line: simplest is to recompute from
+        // the stored value using the same mapping the SVG used.
+        d.setAttribute('cx', x);
+        d.setAttribute('cy', svgYFor(svg, si, i));
+        d.style.opacity = '1';
+      });
+
+      if(tip){
+        let rows = data.series.map(function(s){
+          const v = s.vals[i];
+          return '<div class="optin-tip-row"><span class="optin-swatch" style="background:'+s.color+'"></span>'
+            + '<span class="optin-tip-key">'+s.key+'</span>'
+            + '<span class="optin-tip-val">'+(v===undefined||v===null||isNaN(v) ? 'no data' : v.toFixed(1)+'%')+'</span></div>';
+        }).join('');
+        tip.innerHTML = '<div class="optin-tip-date">'+data.dates[i]+'</div>'+rows;
+        tip.style.display = 'block';
+        // Keep the tooltip inside the card, flipping side near the right edge.
+        const leftPx = (x / scale);
+        const flip = leftPx > rect.width * 0.6;
+        tip.style.left = flip ? 'auto' : (leftPx + 14)+'px';
+        tip.style.right = flip ? (rect.width - leftPx + 14)+'px' : 'auto';
+      }
+    }
+
+    if(hit){
+      hit.addEventListener('mousemove', move);
+      hit.addEventListener('mouseleave', hide);
+    }
+  });
+}
+
+// Reads back the y a series sits at for snapshot i, straight from the drawn
+// path, so the hover dot always lands exactly on the line.
+function svgYFor(svg, seriesIndex, i){
+  const paths = svg.querySelectorAll('path');
+  const p = paths[seriesIndex];
+  if(!p) return 0;
+  const d = p.getAttribute('d') || '';
+  const parts = d.split(/[ML]/).filter(Boolean);
+  const seg = parts[i];
+  if(!seg) return 0;
+  const yv = parseFloat(seg.split(',')[1]);
+  return isNaN(yv) ? 0 : yv;
 }
 
 function optinLegend(seriesDefs){
@@ -4201,6 +4357,11 @@ function optinRenderTrendCard(title, oneDayNote, snaps, seriesDefs, getValue){
   return '<div class="optin-chart-card"><div class="optin-chart-title">'+title+'</div>'
     + optinTrendSVG(snaps, seriesDefs, {getValue:getValue}) + optinLegend(seriesDefs) + '</div>';
 }
+
+window.setP8Zoom = function(on){
+  p8ZoomAxis = !!on;
+  renderOptin();
+};
 
 window.setP8All = function(){
   p8Selected = [];
@@ -4303,7 +4464,9 @@ async function renderOptin(){
       }).join('')
     + '</div>'
     + (atCap ? '<div class="optin-country-cap-note">Comparing '+OPTIN_COMPARE_CAP+' countries at once (the max we can show clearly) — deselect one to add another.</div>' : '')
-    + '</div></details></div>';
+    + '</div></details>'
+    + '<label class="optin-zoom"><input type="checkbox" '+(p8ZoomAxis?'checked':'')+' onchange="setP8Zoom(this.checked)" style="cursor:pointer;"> Zoom to data range</label>'
+    + '</div>';
 
   // ── Stat tiles (skipped when comparing 2+ countries — the table below covers it) ──
   let statRow = '';
@@ -4396,6 +4559,7 @@ async function renderOptin(){
   }
 
   container.innerHTML = html;
+  optinWireCharts(); // attach hover tooltips now that the SVGs exist in the DOM
   filterP8CountryList(p8SearchTerm); // reapply the search filter on the freshly-rendered checkbox list
 }
 
