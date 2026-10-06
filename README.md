@@ -1,122 +1,163 @@
-# Messaging Hub V4.4.1.2
+# Messaging Hub V5.4.1.0
 
-Internal dashboard mapping all customer-facing messages across channels, intents, and markets — plus the cost modeling behind them.
+Internal dashboard mapping all customer-facing messages across brands, channels, intents and markets, plus the cost modeling behind them.
 
 ## What is this?
 
-A single-file interactive dashboard that centralises all messaging intelligence and cost modeling for Ria B&M and Digital customers. Built for the CX team to understand what messages are sent, when, to whom, at what cost, and why the numbers say what they say.
+A single-file interactive dashboard that centralises messaging intelligence and cost modeling for Ria and Xe. Built for the CX team to understand what messages are sent, when, to whom, at what cost, and why the numbers say what they say.
 
-## What's inside
+## How the Hub is organised
 
-Navigation is grouped into three sections in the left sidebar:
+Three switches at the top of the sidebar control what you see.
 
-### Explore
+**Brand switcher: Ria or Xe.** Ria has the full toolkit. Xe currently has its live Iterable customer journeys only.
+
+**Audience switcher: B&M or Digital.** For Ria this is a real structural split, B&M messaging is sheet-fed while Digital comes live from Iterable. The same switch is labelled Consumer and Corporate when Xe is selected, and is disabled for now because the Xe data has no such split in it.
+
+**Mode switcher: Messaging or Costs.** Messaging holds the exploration pages. Costs holds the calculators, and is Ria B&M only.
+
+## What is inside
+
+### Messaging
 
 **Message Flow Map**
-Visual diagram of message routes. Filter by trigger event and country to see which regions receive a message, through which channel, and to whom. Renders progressively as you scroll (only builds the routes currently in view, not all of them at once), and the URL updates as you filter — copy the link to share the exact view you're looking at.
+Visual diagram of message routes. Filter by event and country to see which markets receive a message, through which channel, and to whom. Renders progressively as you scroll, so it only builds the routes currently in view. The URL updates as you filter, so you can copy the link to share an exact view.
 
 **Messages Library**
-The full message library. Browse all live templates by intent and audience. Click any card to read the full message content. Every card also has a 🔗 share icon — click it to copy a link straight to that specific message, so anyone who opens it lands on that exact card, already expanded, without needing to be walked through which filters to click.
+The full message library, browsable by intent and audience. Click any card to read the full message. Every card has a share icon that copies a link straight to that specific message, so whoever opens it lands on that exact card already expanded.
+
+Three controls sit above the list on the B&M side:
+
+- Country filter, built from the 43 countries that actually appear in the sheet.
+- Channel filter for SMS and WhatsApp.
+- A "Fill placeholders with sample data" switch. Turned on, it replaces placeholders like `<Customer First Name>` with realistic sample values, so a message can be read the way a customer receives it. Sample values are chosen at roughly the real median character length for each field, so the SMS length warnings stay honest. WhatsApp placeholders are deliberately left untouched, since WhatsApp is not billed by length.
 
 **Customer Journeys**
-The six main customer scenarios (Order Confirmed, Order Pickup, Pickup Reminders, Cancelled & Refund, Legal Hold, Transfer Resent), with the messaging attached to each step. Each message is cross-matched against the live sheet by title, so anything not marked Live there won't show here either.
+For Ria B&M this shows the six hand-built customer scenarios with the messaging attached to each step, cross-matched against the live sheet by title.
 
-### Cost Modeling
+For Ria Digital and for Xe it shows the real Iterable journeys, pulled daily from Production. Each journey tile carries its live status, a plain count of what it sends per channel, and an "Open in Iterable" button that goes straight to that workflow. Campaigns show their own status badge, and expanding one renders the actual email, push or in-app message along with its real Iterable metrics (sent, delivered, open rate, click rate, unsubscribe rate). There is a search box that matches on journey or campaign name.
+
+**Opt-in rates**
+Daily opt-in figures captured from the Opt-in Power BI dashboard, global or by country.
+
+### Costs
+
+All cost pages carry a "Ria sending countries only" checkbox. Turned on, it removes the Global Agent markets, leaving the markets where Ria itself owns the messaging. The United States stays included either way, because an agent manages the sending tooling there but Ria still owns the customer communication.
 
 **SMS Cost Calculator**
-Country-level SMS cost projection based on 2025 order volumes and current Clickatell telco rates. Includes an SMS opt-in scenario slider — models what cost looks like if the share of customers opted in to SMS changes, using today's real US opt-in rate (≈26%) as the baseline.
+Country-level SMS cost projection based on 2025 order volumes and contracted Clickatell rates. Includes an opt-in scenario slider, using today's real opt-in rate of 64 percent as the baseline.
 
 **Twilio SMS Calculator**
-Same cost model, using Twilio's contracted rates (Order Form 00142240.0, effective Aug 1, 2025) instead of Clickatell's. Built to estimate the cost of sending B&M SMS through Iterable, which routes via Twilio. Covers only the 57 countries priced in the current Twilio contract — other countries fall back to Twilio's public rate card (twilio.com/pricing), which is not reflected in this tab. US and Canada rates exclude an additional, unquantified carrier-fee surcharge (twilio.com/sms/pricing). 11 priced countries have no order-volume data on file and require manual entry.
+The same model using Twilio's contracted rates (Order Form 00142240.0, effective Aug 1, 2025). Covers only the 57 countries priced in that contract. US and Canada rates exclude an additional, unquantified carrier-fee surcharge. 11 priced countries have no order-volume data on file and need manual entry.
 
-**Global Deployment Cost**
-Executive view of projected SMS spend across all 139 markets, using Clickatell rates. Sortable by any column. Filter by region or individual country.
+**Global Deployment Cost** and **Global Deployment Twilio**
+Executive views of projected spend across all markets, sortable and filterable by region or country. The Twilio version covers the 46 markets that are both Twilio-priced and have order data.
 
-**Global Deployment Twilio**
-Same view, using Twilio's rate card. Covers 46 markets — the subset of the 57 Twilio-priced countries that also have order-volume data on file. The 11 without order data are listed in-tab rather than estimated.
+**Full opt-in cost impact**
+Answers one question: what would SMS cost if every customer opted in. It builds an average messages-per-order figure from the real 2025 US event rates, each weighted by how often it fires and by its real SMS segment count, then scales that from today's opt-in rate up to 100 percent. Headline figures and charts sit at the top, with the full editable event table collapsed underneath. Entered values are saved in the browser.
+
+**Opt-in cost impact (by journey)**
+The same question modelled a different way, grouped by delivery path rather than by individual event. Cash pickup counts as one journey sending two messages, for example. Kept alongside the event version rather than replacing it, so the two approaches can be compared.
+
+**Iterable migration simulator**
+Models what moving B&M SMS from FX Client to Iterable would cost. It separates the two cost types that behave differently: the SMS sending cost, which is paid to a carrier either way and varies by market, and the Iterable platform cost, which is paid once for the whole migration regardless of how many markets are included.
+
+Controls cover which markets to migrate (multi-select, so a phased migration can be modelled), Clickatell or Twilio as the carrier, today's opt-in rate or full opt-in, and which events are in scope. The event scope defaults to what is actually live in each market today, since the US runs 25 live SMS events while most other markets run only one to four. Switching to a custom event set shows how much activating new events would add.
+
+Iterable contract figures (Quote Q-15068) are prefilled and editable. Profiles added and current Digital usage default to blank or zero, because those numbers are not known yet, and the page says so on screen rather than hiding it.
 
 ### Methodology
 
 **How We Calculate This**
-A plain-language breakdown of the three cost concepts used throughout the tool (actual cost, cost at full scale, cost at an opt-in scenario), the participation-rate proxy model, what "Live" means and how it's enforced, and every data source behind the numbers.
+Plain-language breakdown of the cost concepts used throughout, the participation-rate proxy model, what "Live" means and how it is enforced, and every data source behind the numbers.
+
+## A note on estimates
+
+The United States is the only market with real behavioural telemetry. Event participation rates and message lengths from the US are applied as a proxy to every other market. Pages that rely on this say so on screen rather than presenting modelled figures as measured ones.
 
 ## Data sources
 
-- **B&M messaging templates** — Clickatell
-- **Digital messaging templates** — Ria Iterable (global) and MY Wallet platform (Malaysia)
-- **Order volumes** — Power BI, all B&M markets, 2025
-- **SMS costs (Clickatell)** — current contracted telco rates
-- **SMS costs (Twilio)** — Twilio Order Form 00142240.0, Exhibit A rate schedule, effective Aug 1, 2025
-- **Clickatell billing** — 2025 invoices
-- **SMS opt-in data** — US opt-in counts by channel (email/SMS/WhatsApp), used as the opt-in baseline
+- B&M messaging templates: Clickatell
+- Digital messaging templates: Ria Iterable and the MY Wallet platform (Malaysia)
+- Xe messaging: Xe Digital Iterable Production
+- Order volumes: Power BI, all B&M markets, 2025
+- SMS costs (Clickatell): current contracted telco rates
+- SMS costs (Twilio): Twilio Order Form 00142240.0, Exhibit A, effective Aug 1, 2025
+- Clickatell billing: 2025 invoices
+- Opt-in data: current rate of 64 percent
+- Global Agent markets: Global Agents file, used for the Ria sending countries filter
+- Iterable contract: Quote Q-15068, Mar 2026 to Mar 2027 renewal
 
 ## Live data connection
 
-The dashboard is connected to a Google Sheet as its live data source. All message templates are stored in the sheet across two tabs — **B&M** and **Digital** — following the same column structure as the Ria transactional message library, with two additional columns: **Intent** and **Live**.
+Message templates live in a Google Sheet across two tabs, **B&M** and **Digital**, following the same column structure as the Ria transactional message library plus two extra columns, **Intent** and **Live**.
 
-Only rows marked **Live = Yes** are ever pulled into the dashboard — that filter happens server-side, via a Google Sheets query, so non-live rows are never even downloaded, not just hidden after the fact. This applies to Message Flow Map, Messages Library, and (via title cross-match) Customer Journeys.
+Only rows marked **Live = Yes** are pulled in. That filter runs server-side through a Google Sheets query, so non-live rows are never downloaded at all, not just hidden afterwards. This applies to Message Flow Map, Messages Library and, by title cross-match, the Ria B&M Customer Journeys.
 
-When a new message is added to the library, copy the row into the relevant sheet tab, fill in the Intent column, mark Live as needed, and the dashboard will reflect the update on next refresh. No file replacement needed.
+To add a message, copy the row into the relevant tab, fill in Intent, mark Live, and the dashboard picks it up on next refresh. No file replacement needed.
 
-Sheet structure mirrors the library exactly:
+Sheet structure:
 
 `Product type | Channel | Event that triggers the message send | Message template title | Message | Subject | Language | Send system | Message recipient | From address | Format type | Service | Payment method | Country to | B&M email message incl. HTML | MessageID | Event ID | Agent Company | Intent | Live`
 
-**Note:** the SMS cost calculators and both Global Deployment Cost tabs are **not** sheet-fed — country rates, order volumes, and US participation rates are hardcoded in `index.html`. Updating a rate in any of these requires a code edit and a new push, not a sheet update.
+**Not sheet-fed:** every cost page. Country rates, order volumes, participation rates, Iterable contract figures and the Global Agent country list are hardcoded in `index.html`. Changing any of them means a code edit and a new push.
 
-**Note on message links:** the sheet's `MessageID` column is currently blank on every row, so per-message share links are built from a combination of title, region, channel, event, recipient, agent, and service instead. That's unique for the large majority of messages — a small number of genuine exact-duplicate rows in the sheet share a link, which is harmless since they show identical content either way. Populating `MessageID` for real would make this fully precise.
+**Message links:** the sheet's `MessageID` column is blank on every row, so per-message share links are built from a mix of title, country, channel, event, recipient, agent and service. That is unique for almost every message. A small number of genuine duplicate rows share a link, which is harmless since they show identical content. Filling in `MessageID` would make this exact.
 
-## First-time / returning users
+## Iterable journey data
 
-The dashboard shows a one-time welcome message to first-time visitors. Returning users get a callout whenever something worth knowing has shipped since their last visit — a fuller "what's new" recap if they're coming from before the V4 redesign, or a lighter single-feature spotlight for smaller additions (e.g. the message share-link). Nothing repeats once dismissed for that version — this is tracked per-browser via local storage, keyed to the app version.
+Three data files, all produced by `scripts/pull-iterable-journeys.js` through the **Pull Iterable journey data** workflow:
 
-## Iterable journey data (Sandbox + Ria Digital Prod)
+| File | Environment | How it runs |
+|---|---|---|
+| `data/iterable-journeys-ria-prod.json` | Ria Digital Prod | Daily, 08:15 UTC |
+| `data/iterable-journeys-xe-prod.json` | Xe Digital Prod | Daily, 08:18 UTC |
+| `data/iterable-journeys.json` | Sandbox | Manual only |
 
-`data/iterable-journeys.json` (Sandbox) and `data/iterable-journeys-ria-prod.json` (Ria Digital Prod) are built by `scripts/pull-iterable-journeys.js`, run manually via the **Pull Iterable journey data** GitHub Actions workflow (`workflow_dispatch`).
+The two Production pulls are automatic. They run three minutes apart so their commits do not collide. The Hub reads the Ria file for Ria Digital and the Xe file for Xe. The Sandbox file is kept for testing and is not read by the Hub.
 
-To run it:
+Ria Prod uses the same defaults as a manual run (enabled journeys, Transactional and Transaction status categories). Xe Prod uses a fixed hand-picked list of journey IDs, because Xe's campaigns do not use a Transactional label the way Ria's do, so a category filter would not work. That list lives in `XE_JOURNEY_IDS` in the workflow file.
 
-1. Go to Actions > Pull Iterable journey data > Run workflow.
-2. Pick the **environment** (`sandbox` or `ria_digital_prod`).
-3. **Journey IDs** field: leave it blank to pull everything (every journey, plus every standalone/non-journey campaign) for that environment. Enter a comma-separated list only if you want to restrict this one run to specific journeys.
+Repo secrets: `ITERABLE_SANDBOX_API_KEY`, `ITERABLE_RIA_PROD_API_KEY` and `ITERABLE_XE_PROD_API_KEY`. All accounts are on the same Iterable data centre (`api.iterable.com`), confirmed Sep 2026.
 
-Two repo secrets back this: `ITERABLE_SANDBOX_API_KEY` and `ITERABLE_RIA_PROD_API_KEY` (add the second one under Settings > Secrets and variables > Actions before running a Prod pull for the first time). Both accounts are on the same Iterable data center (`api.iterable.com`), confirmed Sep 2026.
+**Important:** journey IDs are specific to one Iterable account. An ID that means one journey in Sandbox can be a different or nonexistent journey in Production. Never reuse one environment's ID list for another. Always inspect the committed output after a run before relying on it.
 
-**Important:** if you do use the journey IDs field, remember IDs are specific to one Iterable account. An ID that means one journey in Sandbox can be a completely different (or nonexistent) journey in Ria Digital Prod, never reuse one environment's ID list for another's run. Always inspect the committed output file after a run before relying on it, the same way the Opt-in pull below is meant to be checked, this matters even more on a full pull since it can surface things nobody has reviewed yet (stale test campaigns, clones, drafts).
+The script header carries the full safety model (read-only, allowlisted fields, no PII). It applies equally to Sandbox and Production.
 
-The output file's `journeys` array holds journey-attached campaigns as before; a full pull also fills a `standaloneCampaigns` array with campaigns that aren't tied to any journey (a restricted, ID-based run leaves this empty).
+## Opt-in rates data
 
-The script's own header comment carries the full safety model (read-only, allowlisted fields, no user/PII data), which applies equally to Sandbox and Prod pulls, and to a full pull just as much as a restricted one, Prod data gets no less scrutiny.
+The Opt-in rates tab reads `data/optin-daily.json`, one entry per day, with global figures plus a per-country breakdown. Two ways to fill it:
 
-Xe Digital Prod is not wired up yet, that is tracked separately (see CGD-6275), along with a Hub UI toggle to switch which environment's data is shown.
-
-## Opt-in rates (new — Aug 2026)
-
-The **Opt-in rates** tab reads `data/optin-daily.json`, one entry per day (global figures — always complete — plus a per-country breakdown). It's designed to be filled in one of two ways:
-
-1. **Automated (goal state):** `scripts/pull-optin-data.js`, run daily by `.github/workflows/pull-optin-data.yml`, calls the Power BI **Execute Queries** REST API against the dataset behind the Opt-in report and appends a new snapshot automatically — no manual capture. **Not live yet** — it needs Power BI access set up first (see checklist below), and it's untested against the real API since there are no credentials on file. Run it once by hand via `workflow_dispatch` and check `data/optin-daily.json` closely before trusting the schedule.
-2. **Manual fallback:** screenshot the Opt-in PowerBI dashboard (header tiles at minimum, full country table if there's time), paste into a Claude chat, and ask it to append a new entry to `data/optin-daily.json` following the existing shape.
+1. **Automated (goal state):** `scripts/pull-optin-data.js`, run daily by `.github/workflows/pull-optin-data.yml`, calls the Power BI Execute Queries REST API and appends a snapshot. **Not live yet.** It needs Power BI access set up first and has never been tested against the real API.
+2. **Manual fallback:** screenshot the Opt-in Power BI dashboard, paste it into a Claude chat, and ask for a new entry appended to `data/optin-daily.json` following the existing shape.
 
 ### Setup checklist to go live with the automated pull
 
-Needs someone with Power BI tenant-admin rights (likely IT/data team, not Care/CX):
+Needs Power BI tenant-admin rights, so likely IT or the data team rather than CX:
 
-- [ ] Register a Microsoft Entra (Azure AD) app for this integration — note its **App ID**.
-- [ ] Create a Microsoft Entra **security group**, add the app as a member.
-- [ ] Add that app as a member (Viewer is enough) of the Power BI **workspace** containing the Opt-in dataset.
-- [ ] In the Power BI Admin Portal → Tenant settings → Integration settings, enable **"Dataset Execute Queries REST API"**, scoped to the security group above.
-- [ ] Get the **Dataset ID** behind the Opt-in report (Workspace → dataset settings, or the `Get Datasets` API).
-- [ ] Confirm the real table/measure names behind the report's visual (Power BI Desktop → Performance Analyzer → copy query, or DAX Studio) and update `POWERBI_DAX_QUERY` if the placeholder in `pull-optin-data.js` doesn't match — it's a best-guess from the screenshot, not confirmed against the actual model.
-- [ ] Add repo secrets: `POWERBI_TENANT_ID`, `POWERBI_CLIENT_ID`, `POWERBI_CLIENT_SECRET`, `POWERBI_DATASET_ID`, and optionally `POWERBI_DAX_QUERY` if it needs to differ from the script's default.
-- [ ] Run the workflow manually (`workflow_dispatch`) and check the committed `data/optin-daily.json` before relying on the daily schedule.
+- [ ] Register a Microsoft Entra app, note its App ID
+- [ ] Create an Entra security group and add the app to it
+- [ ] Add the app as a Viewer on the Power BI workspace holding the Opt-in dataset
+- [ ] In Admin Portal, Tenant settings, Integration settings, enable "Dataset Execute Queries REST API" scoped to that group
+- [ ] Get the Dataset ID behind the Opt-in report
+- [ ] Confirm the real table and measure names and update `POWERBI_DAX_QUERY` if the placeholder does not match. The current one is a best guess from a screenshot, not confirmed against the model
+- [ ] Add repo secrets: `POWERBI_TENANT_ID`, `POWERBI_CLIENT_ID`, `POWERBI_CLIENT_SECRET`, `POWERBI_DATASET_ID`, optionally `POWERBI_DAX_QUERY`
+- [ ] Run the workflow manually and check the committed file before trusting the schedule
 
-**Note:** this is the same technical shape as **CGD-5905** ("PowerBI | B&M Messaging Cost, Delivery & Activation Tracking"), which was scoped and then cancelled. Worth checking why before assuming this smaller version clears the same access/security bar.
+**Note:** this is the same technical shape as **CGD-5905** ("PowerBI | B&M Messaging Cost, Delivery & Activation Tracking"), which was scoped then cancelled. Worth checking why before assuming this smaller version clears the same bar.
 
-## How to update the dashboard interface
+## Known open items
 
-Replace `index.html` in this repository with the new version. The URL stays the same.
+- **Three Flow Map elements are still hidden.** The Message Library column, the Who Gets It column and the route-count summary line were hidden for a presentation and never restored. They are marked with `TEMP: hidden for CEO presentation` comments in the CSS. Remove the `display:none` on each to bring them back.
+- **Xe has no Consumer and Corporate split.** The audience switch is disabled for Xe because the Xe pull is a single list. Splitting it would mean two separate pulls.
+- **The placeholder preview uses one tracking URL.** English messages get the `en-us` tracking page and Spanish ones get `es-us`, detected from the message text. The real link carries a per-customer token, so the live message is longer than the preview shows. Tracked in CGD-6561.
+- **Ria PayID has no sample value**, because its format is unknown. It stays visible as a raw placeholder rather than being filled with something invented.
+
+## How to update the dashboard
+
+Replace `index.html` in this repository. The URL stays the same. GitHub Pages serves the `main` branch directly.
 
 ## Owner
 
-CX Team — Ria Money Transfer
+CX Team, Ria Money Transfer
 Built and maintained by Paul
