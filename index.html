@@ -107,11 +107,11 @@ body.brand-xe{--orange:#1B57D6;--orange-bg:#E8EEFB;--orange-dim:#1846AD;--purple
 .optin-swatch{width:8px;height:8px;border-radius:2px;display:inline-block;flex-shrink:0;}
 .optin-chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:18px;}
 .optin-chart-wrap{position:relative;}
-.optin-tip{display:none;position:absolute;top:10px;z-index:5;pointer-events:none;background:var(--card);border:1px solid var(--border-mid);border-radius:8px;padding:8px 11px;box-shadow:0 4px 14px rgba(0,0,0,.12);min-width:130px;}
-.optin-tip-date{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
-.optin-tip-row{display:flex;align-items:center;gap:6px;font-size:11px;line-height:1.7;}
-.optin-tip-key{flex:1;color:var(--text);}
-.optin-tip-val{font-weight:700;color:var(--text);}
+.optin-readout{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;min-height:30px;padding:6px 10px;margin-bottom:6px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:12px;}
+.optin-readout-date{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;min-width:86px;}
+.optin-readout-live{font-weight:600;color:var(--hint);text-transform:none;letter-spacing:0;font-size:10px;margin-left:4px;}
+.optin-readout-item{display:flex;align-items:center;gap:6px;color:var(--text);}
+.optin-readout-val{font-weight:700;}
 .optin-zoom{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;user-select:none;margin-left:16px;}
 .optin-chart-title{font-size:13px;font-weight:700;margin-bottom:2px;}
 .optin-chart-note{font-size:11px;color:var(--muted);margin-bottom:12px;}
@@ -4186,7 +4186,7 @@ function optinTrendSVG(snapshots, seriesDefs, opts){
 
   const chartId = 'optinchart_'+(window._optinChartSeq = (window._optinChartSeq||0)+1);
 
-  let svg = '<svg id="'+chartId+'" viewBox="0 0 '+w+' '+h+'" style="width:100%;height:'+h+'px;overflow:visible;display:block;">';
+  let svg = '<svg id="'+chartId+'" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;overflow:visible;display:block;touch-action:pan-y;">';
   ticks.forEach(function(gv){
     svg += '<line x1="'+padL+'" x2="'+(w-padR)+'" y1="'+yAt(gv).toFixed(1)+'" y2="'+yAt(gv).toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>';
     svg += '<text x="'+(padL-8)+'" y="'+(yAt(gv)+3).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--hint)">'+(step<1?gv.toFixed(1):String(Math.round(gv)))+'%</text>';
@@ -4231,7 +4231,7 @@ function optinTrendSVG(snapshots, seriesDefs, opts){
   }
 
   // Transparent capture area for pointer tracking.
-  svg += '<rect class="optin-hit" x="'+padL+'" y="'+padT+'" width="'+plotW+'" height="'+plotH+'" fill="transparent" style="cursor:crosshair;"/>';
+  svg += '<rect class="optin-hit" x="0" y="'+padT+'" width="'+w+'" height="'+plotH+'" fill="transparent" style="cursor:crosshair;"/>';
   svg += '</svg>';
 
   // Register the data so the hover handler can read values without re-deriving them.
@@ -4242,7 +4242,7 @@ function optinTrendSVG(snapshots, seriesDefs, opts){
     geo: {padL:padL, plotW:plotW, n:n, vbW:w},
   };
 
-  return '<div class="optin-chart-wrap">'+svg+'<div class="optin-tip" id="tip_'+chartId+'"></div></div>';
+  return '<div class="optin-chart-wrap"><div class="optin-readout" id="tip_'+chartId+'">'+optinReadoutHTML(window._optinCharts[chartId], n-1, true)+'</div>'+svg+'</div>';
 }
 
 // Attaches hover behaviour to every chart currently on the page. Called after
@@ -4260,56 +4260,59 @@ function optinWireCharts(){
     const dots = Array.prototype.slice.call(svg.querySelectorAll('.optin-hoverdot'));
     const hit = svg.querySelector('.optin-hit');
 
+    // Readout bar shows the latest day by default, and the hovered day while
+    // the pointer is on the plot. It sits above the chart, so it never covers
+    // the cursor or the lines.
+    const last = data.geo.n - 1;
     function hide(){
       if(guide) guide.style.opacity = '0';
       dots.forEach(function(d){ d.style.opacity = '0'; });
-      if(tip) tip.style.display = 'none';
+      if(tip) tip.innerHTML = optinReadoutHTML(data, last, true);
     }
 
     function move(ev){
-      const rect = svg.getBoundingClientRect();
-      const scale = data.geo.vbW / rect.width;          // viewBox units per CSS pixel
-      const vbX = (ev.clientX - rect.left) * scale;     // pointer in viewBox space
+      // Map the pointer into viewBox units with the SVG's own transform, so it
+      // stays correct whatever the rendered size or any letterboxing.
+      const ctm = svg.getScreenCTM();
+      if(!ctm) return;
+      const pt = svg.createSVGPoint();
+      pt.x = ev.clientX; pt.y = ev.clientY;
+      const vbX = pt.matrixTransform(ctm.inverse()).x;
       const t = (vbX - data.geo.padL) / data.geo.plotW; // 0..1 across the plot
-      let i = Math.round(t * (data.geo.n - 1));
-      i = Math.max(0, Math.min(data.geo.n - 1, i));
-      const x = data.geo.padL + (i/(data.geo.n-1))*data.geo.plotW;
+      let i = Math.round(t * last);
+      i = Math.max(0, Math.min(last, i));
+      const x = data.geo.padL + (i/last)*data.geo.plotW;
 
       if(guide){ guide.setAttribute('x1', x); guide.setAttribute('x2', x); guide.style.opacity = '1'; }
       dots.forEach(function(d){
         const si = parseInt(d.getAttribute('data-series'),10);
-        const pathPts = data.series[si];
-        if(!pathPts) return;
-        // Re-read the y from the rendered path is awkward, so reuse the circle
-        // positions by asking the sibling line: simplest is to recompute from
-        // the stored value using the same mapping the SVG used.
+        if(!data.series[si]) return;
         d.setAttribute('cx', x);
         d.setAttribute('cy', svgYFor(svg, si, i));
         d.style.opacity = '1';
       });
-
-      if(tip){
-        let rows = data.series.map(function(s){
-          const v = s.vals[i];
-          return '<div class="optin-tip-row"><span class="optin-swatch" style="background:'+s.color+'"></span>'
-            + '<span class="optin-tip-key">'+s.key+'</span>'
-            + '<span class="optin-tip-val">'+(v===undefined||v===null||isNaN(v) ? 'no data' : v.toFixed(1)+'%')+'</span></div>';
-        }).join('');
-        tip.innerHTML = '<div class="optin-tip-date">'+data.dates[i]+'</div>'+rows;
-        tip.style.display = 'block';
-        // Keep the tooltip inside the card, flipping side near the right edge.
-        const leftPx = (x / scale);
-        const flip = leftPx > rect.width * 0.6;
-        tip.style.left = flip ? 'auto' : (leftPx + 14)+'px';
-        tip.style.right = flip ? (rect.width - leftPx + 14)+'px' : 'auto';
-      }
+      if(tip) tip.innerHTML = optinReadoutHTML(data, i, false);
     }
 
     if(hit){
-      hit.addEventListener('mousemove', move);
-      hit.addEventListener('mouseleave', hide);
+      hit.addEventListener('pointermove', move);
+      hit.addEventListener('pointerdown', move);
+      hit.addEventListener('pointerleave', hide);
+      hit.addEventListener('pointercancel', hide);
     }
   });
+}
+
+// Builds the readout bar content for snapshot i.
+function optinReadoutHTML(data, i, isLatest){
+  const items = data.series.map(function(s){
+    const v = s.vals[i];
+    return '<span class="optin-readout-item"><span class="optin-swatch" style="background:'+s.color+'"></span>'
+      + '<span>'+s.key+'</span>'
+      + '<span class="optin-readout-val">'+(v===undefined||v===null||isNaN(v) ? 'no data' : v.toFixed(1)+'%')+'</span></span>';
+  }).join('');
+  return '<span class="optin-readout-date">'+data.dates[i]
+    + (isLatest ? '<span class="optin-readout-live">latest</span>' : '')+'</span>'+items;
 }
 
 // Reads back the y a series sits at for snapshot i, straight from the drawn
