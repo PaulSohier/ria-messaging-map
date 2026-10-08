@@ -115,6 +115,20 @@ body.brand-xe{--orange:#1B57D6;--orange-bg:#E8EEFB;--orange-dim:#1846AD;--purple
 .optin-zoom{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer;user-select:none;margin-left:16px;}
 .optin-chart-title{font-size:13px;font-weight:700;margin-bottom:2px;}
 .optin-chart-note{font-size:11px;color:var(--muted);margin-bottom:12px;}
+.optin-card-head{display:flex;flex-wrap:wrap;align-items:stretch;justify-content:space-between;gap:10px 18px;margin-bottom:14px;}
+.optin-card-head-text{flex:1;min-width:200px;align-self:center;}
+.optin-tabs{display:flex;flex-wrap:wrap;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.optin-tab{background:var(--card);border:0;border-left:1px solid var(--border);padding:9px 16px;text-align:left;cursor:pointer;font-family:inherit;min-width:104px;color:var(--text);}
+.optin-tab:first-child{border-left:0;}
+.optin-tab:hover{background:var(--bg);}
+.optin-tab[data-active="true"]{background:var(--bg);}
+.optin-tab:focus-visible{outline:2px solid var(--text);outline-offset:-2px;}
+.optin-tab-label{display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:var(--muted);white-space:nowrap;}
+.optin-tab-val{font-size:20px;font-weight:800;line-height:1.1;margin-top:4px;}
+.optin-tip{position:absolute;top:4px;left:0;min-width:128px;pointer-events:none;background:var(--card);border:1px solid var(--border-mid);border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.10);opacity:0;white-space:nowrap;z-index:2;}
+.optin-tip-date{font-weight:700;margin-bottom:5px;}
+.optin-tip-row{display:flex;align-items:center;gap:6px;}
+.optin-tip-val{margin-left:auto;padding-left:14px;font-weight:700;}
 .optin-legend{display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--muted);flex-wrap:wrap;}
 .optin-legend-item{display:flex;align-items:center;gap:6px;}
 .optin-banner{background:var(--orange-bg);border:1px solid var(--orange);color:var(--orange-dim);border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:16px;line-height:1.5;}
@@ -4158,9 +4172,43 @@ function optinFormatM(n){
   return String(n);
 }
 
+// Smooth line through the points that never overshoots them (monotone cubic,
+// same idea as the "monotone" curve in common chart libraries).
+function optinMonotonePath(pts){
+  const n = pts.length;
+  if(n < 2) return '';
+  const dx = [], m = [];
+  for(let i=0;i<n-1;i++){ dx[i] = pts[i+1].x - pts[i].x; m[i] = (pts[i+1].y - pts[i].y) / dx[i]; }
+  const t = [m[0]];
+  for(let i=1;i<n-1;i++){ t[i] = (m[i-1]*m[i] <= 0) ? 0 : (m[i-1]+m[i])/2; }
+  t[n-1] = m[n-2];
+  for(let i=0;i<n-1;i++){
+    if(m[i] === 0){ t[i] = 0; t[i+1] = 0; continue; }
+    const a = t[i]/m[i], b = t[i+1]/m[i], s = a*a + b*b;
+    if(s > 9){ const k = 3/Math.sqrt(s); t[i] = k*a*m[i]; t[i+1] = k*b*m[i]; }
+  }
+  let d = 'M'+pts[0].x.toFixed(1)+','+pts[0].y.toFixed(1);
+  for(let i=0;i<n-1;i++){
+    const h = dx[i]/3;
+    d += ' C'+(pts[i].x+h).toFixed(1)+','+(pts[i].y+t[i]*h).toFixed(1)
+       + ' '+(pts[i+1].x-h).toFixed(1)+','+(pts[i+1].y-t[i+1]*h).toFixed(1)
+       + ' '+pts[i+1].x.toFixed(1)+','+pts[i+1].y.toFixed(1);
+  }
+  return d;
+}
+
+// "2026-10-07" -> "Oct 7" (short) or "Oct 7, 2026" (long)
+function optinFmtDate(iso, long){
+  const d = new Date(iso+'T00:00:00');
+  if(isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', long ? {month:'short', day:'numeric', year:'numeric'} : {month:'short', day:'numeric'});
+}
+
+// Draws ONE line per call in practice (the card shows the active tab only), but
+// still accepts several series. No dots, smooth curve, horizontal grid only.
 function optinTrendSVG(snapshots, seriesDefs, opts){
   opts = opts || {};
-  const w = 680, h = 210, padL=34, padR=14, padT=14, padB=34;
+  const w = 680, h = 210, padL=34, padR=14, padT=14, padB=30;
   const n = snapshots.length;
   const plotW = w-padL-padR, plotH = h-padT-padB;
 
@@ -4199,6 +4247,7 @@ function optinTrendSVG(snapshots, seriesDefs, opts){
   const chartId = 'optinchart_'+(window._optinChartSeq = (window._optinChartSeq||0)+1);
 
   let svg = '<svg id="'+chartId+'" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;overflow:visible;display:block;touch-action:pan-y;">';
+  // Horizontal grid only, no axis lines, no tick marks.
   ticks.forEach(function(gv){
     svg += '<line x1="'+padL+'" x2="'+(w-padR)+'" y1="'+yAt(gv).toFixed(1)+'" y2="'+yAt(gv).toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>';
     svg += '<text x="'+(padL-8)+'" y="'+(yAt(gv)+3).toFixed(1)+'" text-anchor="end" font-size="9" fill="var(--hint)">'+(step<1?gv.toFixed(1):String(Math.round(gv)))+'%</text>';
@@ -4207,38 +4256,31 @@ function optinTrendSVG(snapshots, seriesDefs, opts){
   // Hover guide, hidden until the pointer is over the plot.
   svg += '<line class="optin-guide" x1="0" x2="0" y1="'+padT+'" y2="'+(padT+plotH)+'" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" style="opacity:0;"/>';
 
-  // Dots are only drawn when there are few enough to stay readable. Past that
-  // the line alone carries the shape, and the hover guide gives exact values.
-  const showDots = n <= 14;
-
+  const regSeries = [];
   seriesDefs.forEach(function(s, si){
     const vals = seriesVals[si];
     const pts = vals.map(function(v,i){ return {x:xAt(i), y:yAt(v), v:v}; });
+    regSeries.push({key:s.key, color:s.color, vals:vals, ys:pts.map(function(p){ return p.y; })});
     if(n===1){
       svg += '<circle cx="'+pts[0].x+'" cy="'+pts[0].y+'" r="5" style="fill:'+s.color+'"/>';
       svg += '<text x="'+(pts[0].x+10)+'" y="'+(pts[0].y+3)+'" font-size="10" font-weight="700" style="fill:'+s.color+'">'+(pts[0].v||0).toFixed(1)+'%</text>';
     } else {
-      const d = pts.map(function(p,i){ return (i===0?'M':'L')+p.x.toFixed(1)+','+p.y.toFixed(1); }).join(' ');
-      svg += '<path d="'+d+'" fill="none" style="stroke:'+s.color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-      if(showDots){
-        pts.forEach(function(p){ svg += '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="2.5" style="fill:'+s.color+'"/>'; });
-      }
-      // Marker that follows the hover guide, one per series.
+      // No dots on the line. A single marker appears only while hovering.
+      svg += '<path d="'+optinMonotonePath(pts)+'" fill="none" style="stroke:'+s.color+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
       svg += '<circle class="optin-hoverdot" data-series="'+si+'" r="4" style="fill:'+s.color+';stroke:var(--card);stroke-width:1.5;opacity:0;" cx="0" cy="0"/>';
     }
   });
 
-  // X labels: up to 5 evenly spaced dates, so the axis stays readable as days
-  // accumulate instead of only showing first and last.
+  // X labels: short dates ("Aug 14"), as many as fit with a comfortable gap.
   if(n===1){
-    svg += '<text x="'+xAt(0)+'" y="'+(h-10)+'" text-anchor="middle" font-size="9" fill="var(--hint)">'+snapshots[0].date+'</text>';
+    svg += '<text x="'+xAt(0)+'" y="'+(h-8)+'" text-anchor="middle" font-size="9" fill="var(--hint)">'+optinFmtDate(snapshots[0].date)+'</text>';
   } else if(n>1){
-    const maxLabels = Math.min(5, n);
+    const maxLabels = Math.max(2, Math.min(n, Math.floor(plotW / 78)));
     const idxs = [];
     for(let k=0;k<maxLabels;k++){ idxs.push(Math.round(k*(n-1)/(maxLabels-1))); }
     idxs.filter(function(v,i,a){ return a.indexOf(v)===i; }).forEach(function(i){
       const anchor = i===0 ? 'start' : (i===n-1 ? 'end' : 'middle');
-      svg += '<text x="'+xAt(i).toFixed(1)+'" y="'+(h-10)+'" text-anchor="'+anchor+'" font-size="9" fill="var(--hint)">'+snapshots[i].date+'</text>';
+      svg += '<text x="'+xAt(i).toFixed(1)+'" y="'+(h-8)+'" text-anchor="'+anchor+'" font-size="9" fill="var(--hint)">'+optinFmtDate(snapshots[i].date)+'</text>';
     });
   }
 
@@ -4250,11 +4292,11 @@ function optinTrendSVG(snapshots, seriesDefs, opts){
   window._optinCharts = window._optinCharts || {};
   window._optinCharts[chartId] = {
     dates: snapshots.map(function(s){ return s.date; }),
-    series: seriesDefs.map(function(s, si){ return {key:s.key, color:s.color, vals:seriesVals[si]}; }),
+    series: regSeries,
     geo: {padL:padL, plotW:plotW, n:n, vbW:w},
   };
 
-  return '<div class="optin-chart-wrap"><div class="optin-readout" id="tip_'+chartId+'">'+optinReadoutHTML(window._optinCharts[chartId], n-1, true)+'</div>'+svg+'</div>';
+  return '<div class="optin-chart-wrap" id="wrap_'+chartId+'"><div class="optin-tip" id="tip_'+chartId+'"></div>'+svg+'</div>';
 }
 
 // Attaches hover behaviour to every chart currently on the page. Called after
@@ -4267,19 +4309,17 @@ function optinWireCharts(){
     const data = reg[id];
     if(data.geo.n < 2) return;
     svg.dataset.wired = '1';
+    const wrap = document.getElementById('wrap_'+id);
     const tip = document.getElementById('tip_'+id);
     const guide = svg.querySelector('.optin-guide');
     const dots = Array.prototype.slice.call(svg.querySelectorAll('.optin-hoverdot'));
     const hit = svg.querySelector('.optin-hit');
-
-    // Readout bar shows the latest day by default, and the hovered day while
-    // the pointer is on the plot. It sits above the chart, so it never covers
-    // the cursor or the lines.
     const last = data.geo.n - 1;
+
     function hide(){
       if(guide) guide.style.opacity = '0';
       dots.forEach(function(d){ d.style.opacity = '0'; });
-      if(tip) tip.innerHTML = optinReadoutHTML(data, last, true);
+      if(tip) tip.style.opacity = '0';
     }
 
     function move(ev){
@@ -4300,10 +4340,21 @@ function optinWireCharts(){
         const si = parseInt(d.getAttribute('data-series'),10);
         if(!data.series[si]) return;
         d.setAttribute('cx', x);
-        d.setAttribute('cy', svgYFor(svg, si, i));
+        d.setAttribute('cy', data.series[si].ys[i]);
         d.style.opacity = '1';
       });
-      if(tip) tip.innerHTML = optinReadoutHTML(data, i, false);
+
+      // Floating tooltip next to the guide, flipped to the left near the right edge.
+      if(tip && wrap){
+        tip.innerHTML = optinTipHTML(data, i);
+        const scale = svg.getBoundingClientRect().width / data.geo.vbW;
+        const px = x * scale;
+        const tw = tip.offsetWidth;
+        let left = px + 14;
+        if(left + tw > wrap.clientWidth) left = px - tw - 14;
+        tip.style.left = Math.max(0, left)+'px';
+        tip.style.opacity = '1';
+      }
     }
 
     if(hit){
@@ -4315,30 +4366,15 @@ function optinWireCharts(){
   });
 }
 
-// Builds the readout bar content for snapshot i.
-function optinReadoutHTML(data, i, isLatest){
-  const items = data.series.map(function(s){
+// Tooltip content for snapshot i: long date, then one row per drawn series.
+function optinTipHTML(data, i){
+  const rows = data.series.map(function(s){
     const v = s.vals[i];
-    return '<span class="optin-readout-item"><span class="optin-swatch" style="background:'+s.color+'"></span>'
-      + '<span>'+s.key+'</span>'
-      + '<span class="optin-readout-val">'+(v===undefined||v===null||isNaN(v) ? 'no data' : v.toFixed(1)+'%')+'</span></span>';
+    return '<div class="optin-tip-row"><span class="optin-swatch" style="background:'+s.color+'"></span>'
+      + '<span>'+esc(s.key)+'</span>'
+      + '<span class="optin-tip-val">'+(v===undefined||v===null||isNaN(v) ? 'no data' : v.toFixed(1)+'%')+'</span></div>';
   }).join('');
-  return '<span class="optin-readout-date">'+data.dates[i]
-    + (isLatest ? '<span class="optin-readout-live">latest</span>' : '')+'</span>'+items;
-}
-
-// Reads back the y a series sits at for snapshot i, straight from the drawn
-// path, so the hover dot always lands exactly on the line.
-function svgYFor(svg, seriesIndex, i){
-  const paths = svg.querySelectorAll('path');
-  const p = paths[seriesIndex];
-  if(!p) return 0;
-  const d = p.getAttribute('d') || '';
-  const parts = d.split(/[ML]/).filter(Boolean);
-  const seg = parts[i];
-  if(!seg) return 0;
-  const yv = parseFloat(seg.split(',')[1]);
-  return isNaN(yv) ? 0 : yv;
+  return '<div class="optin-tip-date">'+optinFmtDate(data.dates[i], true)+'</div>'+rows;
 }
 
 function optinLegend(seriesDefs){
@@ -4369,9 +4405,47 @@ function optinRenderTrendCard(title, oneDayNote, snaps, seriesDefs, getValue){
         }).join('')
       + '</div></div>';
   }
-  return '<div class="optin-chart-card"><div class="optin-chart-title">'+title+'</div>'
-    + optinTrendSVG(snaps, seriesDefs, {getValue:getValue}) + optinLegend(seriesDefs) + '</div>';
+  // Interactive card: one tab per series (latest value on each tab), and the
+  // chart draws only the selected series. The choice is remembered by title,
+  // so re-rendering the page (zoom toggle, country change) keeps it.
+  window._optinCards = window._optinCards || {};
+  window._optinActive = window._optinActive || {};
+  const cardId = 'optincard_'+(window._optinCardSeq = (window._optinCardSeq||0)+1);
+  let active = window._optinActive[title] || 0;
+  if(active >= seriesDefs.length) active = 0;
+  window._optinCards[cardId] = {title:title, snaps:snaps, seriesDefs:seriesDefs, getValue:getValue, active:active, chartId:null};
+  return '<div class="optin-chart-card" id="'+cardId+'">'+optinCardInner(cardId)+'</div>';
 }
+
+function optinCardInner(cardId){
+  const c = window._optinCards[cardId];
+  const last = c.snaps[c.snaps.length-1];
+  const tabs = c.seriesDefs.map(function(s, i){
+    const v = c.getValue(last, s);
+    const on = i === c.active;
+    return '<button type="button" class="optin-tab" data-active="'+on+'" aria-pressed="'+on+'" onclick="optinSelectSeries(\''+cardId+'\','+i+')"'
+      + (on ? ' style="box-shadow:inset 0 -2px 0 '+s.color+';"' : '')+'>'
+      + '<span class="optin-tab-label"><span class="optin-swatch" style="background:'+s.color+'"></span>'+esc(s.key)+'</span>'
+      + '<span class="optin-tab-val">'+(v===undefined||v===null||isNaN(v) ? 'no data' : v.toFixed(1)+'%')+'</span></button>';
+  }).join('');
+  const chart = optinTrendSVG(c.snaps, [c.seriesDefs[c.active]], {getValue:c.getValue});
+  const m = chart.match(/id="wrap_(optinchart_\d+)"/);
+  if(c.chartId && window._optinCharts) delete window._optinCharts[c.chartId];
+  c.chartId = m ? m[1] : null;
+  return '<div class="optin-card-head"><div class="optin-card-head-text"><div class="optin-chart-title">'+c.title+'</div>'
+    + '<div class="optin-chart-note" style="margin-bottom:0;">Latest value on each tab. Click a tab to show its line.</div></div>'
+    + '<div class="optin-tabs">'+tabs+'</div></div>'+chart;
+}
+
+window.optinSelectSeries = function(cardId, idx){
+  const c = window._optinCards && window._optinCards[cardId];
+  const el = document.getElementById(cardId);
+  if(!c || !el) return;
+  c.active = idx;
+  window._optinActive[c.title] = idx;
+  el.innerHTML = optinCardInner(cardId);
+  optinWireCharts();
+};
 
 window.setP8Zoom = function(on){
   p8ZoomAxis = !!on;
