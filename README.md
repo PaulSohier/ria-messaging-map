@@ -1,4 +1,4 @@
-# Messaging Hub V5.4.1.0
+# Messaging Hub V5.6.0.0
 
 Internal dashboard mapping all customer-facing messages across brands, channels, intents and markets, plus the cost modeling behind them.
 
@@ -26,6 +26,8 @@ Visual diagram of message routes. Filter by event and country to see which marke
 **Messages Library**
 The full message library, browsable by intent and audience. Click any card to read the full message. Every card has a share icon that copies a link straight to that specific message, so whoever opens it lands on that exact card already expanded.
 
+Every SMS card also shows its character count, so you can see how close a message sits to the 160 character limit. The count is grey up to 140 characters, orange from 141 to 160 when little headroom is left, and red above 160 with the number of SMS units billed. Hover the count to see how many characters are left. WhatsApp cards have no count. The count follows the placeholder switch described below, so it shows the filled length when that switch is on.
+
 Three controls sit above the list on the B&M side:
 
 - Country filter, built from the 43 countries that actually appear in the sheet.
@@ -38,7 +40,7 @@ For Ria B&M this shows the six hand-built customer scenarios with the messaging 
 For Ria Digital and for Xe it shows the real Iterable journeys, pulled daily from Production. Each journey tile carries its live status, a plain count of what it sends per channel, and an "Open in Iterable" button that goes straight to that workflow. Campaigns show their own status badge, and expanding one renders the actual email, push or in-app message along with its real Iterable metrics (sent, delivered, open rate, click rate, unsubscribe rate). There is a search box that matches on journey or campaign name.
 
 **Opt-in rates**
-Daily opt-in figures captured from the Opt-in Power BI dashboard, global or by country.
+Daily opt-in figures captured from the Opt-in Power BI dashboard, global or by country. Email, SMS and WhatsApp are shown as trend charts with a hover readout, and up to 8 countries can be compared side by side.
 
 ### Costs
 
@@ -150,12 +152,14 @@ Needs Power BI tenant-admin rights, so likely IT or the data team rather than CX
 
 - **Three Flow Map elements are still hidden.** The Message Library column, the Who Gets It column and the route-count summary line were hidden for a presentation and never restored. They are marked with `TEMP: hidden for CEO presentation` comments in the CSS. Remove the `display:none` on each to bring them back.
 - **Xe has no Consumer and Corporate split.** The audience switch is disabled for Xe because the Xe pull is a single list. Splitting it would mean two separate pulls.
-- **The placeholder preview uses one tracking URL.** English messages get the `en-us` tracking page and Spanish ones get `es-us`, detected from the message text. The real link carries a per-customer token, so the live message is longer than the preview shows. Tracked in CGD-6561.
+- **The placeholder preview uses one tracking URL per language.** English messages get the `en-us` tracking page and Spanish ones get `es-us`, detected from the message text (CGD-6561, done). The real link carries a per-customer token, so the live message is longer than the preview shows.
 - **Ria PayID has no sample value**, because its format is unknown. It stays visible as a raw placeholder rather than being filled with something invented.
 
 ## How to update the dashboard
 
 Replace `index.html` in this repository. The URL stays the same. GitHub Pages serves the `main` branch directly.
+
+Each new `index.html` gets a version number (format VX.X.X.X: major, minor, patch, build), which is also shown in the title of this README. Update the number here when you upload a new version.
 
 ## Owner
 
