@@ -170,6 +170,8 @@ mark{background:#FCE68A;color:inherit;border-radius:2px;padding:0 1px;}
 .t-entry{background:var(--em-bg);color:var(--em);}
 .t-sendto{background:#F1EFE8;color:#444441;}
 .t-oversize{background:var(--critical-bg);color:var(--critical);font-weight:700;}
+.t-chars{background:#F1EFE8;color:var(--muted);}
+.t-chars-near{background:var(--em-bg);color:var(--em);font-weight:700;}
 .ch-badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
 .ch-sms{background:var(--sms-bg);color:var(--sms);}
 .ch-wa{background:var(--wa-bg);color:var(--wa);}
@@ -2328,18 +2330,28 @@ function renderFlow(){
 /* ─── PAGE 1: WHAT FIRES WHEN ─── */
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
-// SMS billing units are 160 characters each — a message over that length is
-// charged as 2+ SMS. Flag it right in the tag row so it's visible without
-// opening the card. Character count is on the raw template text (including
-// merge fields like <Customer First Name>), same text the sheet stores —
-// not a simulation of the rendered/substituted message.
+// SMS billing units are 160 characters each. A message over that length is
+// charged as 2+ SMS. The character count is always shown on SMS messages, so
+// you can see how close a message sits to the 160 boundary, not only whether
+// it already crossed it:
+//   over 160     -> red flag with billing units (as before)
+//   141 to 160   -> amber tag, little headroom left
+//   140 or less  -> neutral grey tag
+// Character count is on the text passed in. In the Messages Library this is the
+// filled text when the placeholder switch is on, otherwise the raw template text
+// (including merge fields like <Customer First Name>).
 const SMS_UNIT_CHARS = 160;
+const SMS_NEAR_LIMIT_CHARS = 140;
 function smsOversizeTag(channel, rawMsg){
   if(channel !== 'SMS' || !rawMsg) return '';
   const len = rawMsg.length;
-  if(len <= SMS_UNIT_CHARS) return '';
-  const units = Math.ceil(len / SMS_UNIT_CHARS);
-  return '<span class="tag t-oversize" title="'+len+' characters — billed as '+units+' SMS units at 160 chars each">&#128681; '+len+' ch. ('+units+' SMS)</span>';
+  if(len > SMS_UNIT_CHARS){
+    const units = Math.ceil(len / SMS_UNIT_CHARS);
+    return '<span class="tag t-oversize" title="'+len+' characters, billed as '+units+' SMS units at 160 chars each">&#128681; '+len+' ch. ('+units+' SMS)</span>';
+  }
+  const left = SMS_UNIT_CHARS - len;
+  const cls = len > SMS_NEAR_LIMIT_CHARS ? 't-chars-near' : 't-chars';
+  return '<span class="tag '+cls+'" title="'+len+' characters, 1 SMS unit, '+left+' characters left before the 160 limit">'+len+' ch.</span>';
 }
 
 let expandedCard = null;
